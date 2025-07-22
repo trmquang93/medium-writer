@@ -1,12 +1,141 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { ArrowLeft, Wand2, CheckCircle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  ArrowLeft, 
+  Wand2, 
+  CheckCircle, 
+  AlertTriangle, 
+  RefreshCw, 
+  FileText, 
+  Clock,
+  Eye,
+  Loader2,
+  Sparkles,
+  Brain,
+  Target
+} from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
+import { useAIProvider } from '@/hooks/useAIProvider'
+import { useSettingsStore } from '@/store/settingsStore'
 import { Button } from '../ui/Button'
+import { cn } from '@/lib/utils'
+
+interface GenerationProgress {
+  stage: 'initializing' | 'analyzing' | 'structuring' | 'writing' | 'reviewing' | 'completed' | 'error'
+  progress: number
+  message: string
+}
+
+const generationStages: GenerationProgress[] = [
+  { stage: 'initializing', progress: 10, message: 'Initializing AI writer...' },
+  { stage: 'analyzing', progress: 25, message: 'Analyzing your inputs and category...' },
+  { stage: 'structuring', progress: 40, message: 'Creating article structure...' },
+  { stage: 'writing', progress: 70, message: 'Writing your article...' },
+  { stage: 'reviewing', progress: 90, message: 'Reviewing and polishing...' },
+  { stage: 'completed', progress: 100, message: 'Article generation completed!' }
+]
 
 export function GenerationStep() {
-  const { setCurrentStep } = useWorkflowStore()
+  const { 
+    userInput, 
+    selectedCategory, 
+    responses, 
+    generatedArticle, 
+    setGeneratedArticle,
+    setCurrentStep,
+    setError,
+    error 
+  } = useWorkflowStore()
+  
+  const { generateArticle } = useAIProvider()
+  const { selectedProvider } = useSettingsStore()
+  
+  const [currentStage, setCurrentStage] = useState<GenerationProgress>(generationStages[0])
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [startTime, setStartTime] = useState<Date | null>(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const intervalRef = useRef<NodeJS.Timeout>()
+
+  // Timer effect for elapsed time
+  useEffect(() => {
+    if (isGenerating && startTime) {
+      intervalRef.current = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime.getTime()) / 1000))
+      }, 1000)
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [isGenerating, startTime])
+
+  // Auto-start generation when component mounts (if no article exists)
+  useEffect(() => {
+    if (!generatedArticle && !isGenerating && !error) {
+      handleGenerate()
+    }
+  }, [])
+
+  const simulateProgressStages = async (): Promise<void> => {
+    for (const stage of generationStages.slice(0, -1)) {
+      setCurrentStage(stage)
+      // Randomize timing to make it feel more natural
+      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1000))
+    }
+  }
+
+  const handleGenerate = async (isRetry: boolean = false) => {
+    if (!userInput || !selectedCategory) {
+      setError('Missing required information for article generation')
+      return
+    }
+
+    setIsGenerating(true)
+    setStartTime(new Date())
+    setError(null)
+    
+    if (isRetry) {
+      setRetryCount(prev => prev + 1)
+    }
+
+    try {
+      // Start progress simulation
+      const progressPromise = simulateProgressStages()
+      
+      // Prepare responses data for the API
+      const responseData = responses.map(r => ({
+        question: r.question,
+        answer: r.answer
+      }))
+
+      // Generate article
+      const generationPromise = generateArticle(userInput, selectedCategory, responseData)
+      
+      // Wait for both progress simulation and actual generation
+      await Promise.all([progressPromise, generationPromise.then(article => {
+        setGeneratedArticle(article)
+        setCurrentStage(generationStages[generationStages.length - 1])
+      })])
+
+    } catch (error) {
+      console.error('Article generation failed:', error)
+      setCurrentStage({
+        stage: 'error',
+        progress: 0,
+        message: error instanceof Error ? error.message : 'Generation failed. Please try again.'
+      })
+      setError(error instanceof Error ? error.message : 'Failed to generate article')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   const handleEdit = () => {
     setCurrentStep('edit')
@@ -14,6 +143,42 @@ export function GenerationStep() {
 
   const handleBack = () => {
     setCurrentStep('questions')
+  }
+
+  const handleRetry = () => {
+    handleGenerate(true)
+  }
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `${secs}s`
+  }
+
+  const getStageIcon = (stage: GenerationProgress['stage']) => {
+    switch (stage) {
+      case 'initializing': return <Loader2 className="w-5 h-5 animate-spin" />
+      case 'analyzing': return <Brain className="w-5 h-5" />
+      case 'structuring': return <Target className="w-5 h-5" />
+      case 'writing': return <FileText className="w-5 h-5" />
+      case 'reviewing': return <Eye className="w-5 h-5" />
+      case 'completed': return <CheckCircle className="w-5 h-5" />
+      case 'error': return <AlertTriangle className="w-5 h-5" />
+      default: return <Sparkles className="w-5 h-5" />
+    }
+  }
+
+  const getStageColor = (stage: GenerationProgress['stage']) => {
+    switch (stage) {
+      case 'initializing': return 'text-blue-600 bg-blue-50 border-blue-200'
+      case 'analyzing': return 'text-purple-600 bg-purple-50 border-purple-200'
+      case 'structuring': return 'text-orange-600 bg-orange-50 border-orange-200'
+      case 'writing': return 'text-green-600 bg-green-50 border-green-200'
+      case 'reviewing': return 'text-indigo-600 bg-indigo-50 border-indigo-200'
+      case 'completed': return 'text-green-600 bg-green-50 border-green-200'
+      case 'error': return 'text-red-600 bg-red-50 border-red-200'
+      default: return 'text-gray-600 bg-gray-50 border-gray-200'
+    }
   }
 
   return (
@@ -48,20 +213,157 @@ export function GenerationStep() {
         </motion.p>
       </div>
 
-      {/* Placeholder Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-green-50 rounded-lg p-8 border border-green-200 text-center"
-      >
-        <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-green-900 mb-2">Generation Component Coming Soon</h3>
-        <p className="text-green-800">
-          This will show the real-time article generation process with progress indicators.
-          For now, click Edit to proceed to the final step.
-        </p>
-      </motion.div>
+      {/* Generation Status */}
+      <AnimatePresence mode="wait">
+        {isGenerating || generatedArticle || error ? (
+          <motion.div
+            key="generation-status"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -30 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-6"
+          >
+            {/* Progress Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={cn(
+                  "p-2 rounded-lg border transition-all duration-500",
+                  getStageColor(currentStage.stage)
+                )}>
+                  {getStageIcon(currentStage.stage)}
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">
+                    {currentStage.stage === 'error' ? 'Generation Failed' : 
+                     currentStage.stage === 'completed' ? 'Article Ready!' : 
+                     'Generating Article...'}
+                  </h3>
+                  <p className="text-sm text-gray-600">{currentStage.message}</p>
+                </div>
+              </div>
+              
+              {(isGenerating || elapsedTime > 0) && (
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <Clock className="w-4 h-4" />
+                  <span>{formatTime(elapsedTime)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            {(isGenerating || currentStage.stage === 'completed') && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Progress</span>
+                  <span className="font-medium text-gray-900">{currentStage.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <motion.div
+                    className={cn(
+                      "h-3 rounded-full transition-all duration-500",
+                      currentStage.stage === 'completed' 
+                        ? "bg-gradient-to-r from-green-500 to-emerald-600" 
+                        : "bg-gradient-to-r from-blue-500 to-purple-600"
+                    )}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${currentStage.progress}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {currentStage.stage === 'error' && (
+              <div className="bg-red-50 rounded-lg p-6 border border-red-200">
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="text-red-900 font-medium mb-2">Generation Failed</h4>
+                    <p className="text-red-800 text-sm mb-4">{error || currentStage.message}</p>
+                    {retryCount < 3 && (
+                      <Button
+                        onClick={handleRetry}
+                        variant="outline"
+                        size="sm"
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Try Again {retryCount > 0 && `(${retryCount + 1}/3)`}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Success State */}
+            {currentStage.stage === 'completed' && generatedArticle && (
+              <div className="bg-green-50 rounded-lg p-6 border border-green-200">
+                <div className="flex items-start space-x-3">
+                  <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="text-green-900 font-medium mb-2">Article Generated Successfully!</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-green-800 mb-4">
+                      <div>
+                        <span className="font-medium">Title:</span>
+                        <p className="truncate">{generatedArticle.title}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Words:</span>
+                        <p>{generatedArticle.wordCount?.toLocaleString() || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Reading Time:</span>
+                        <p>{generatedArticle.readingTime || 'N/A'} min</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Provider:</span>
+                        <p className="capitalize">{selectedProvider}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Article Preview */}
+                    <div className="bg-white rounded-lg p-4 border border-green-300 max-h-48 overflow-y-auto">
+                      <h5 className="font-medium text-gray-900 mb-2">Preview:</h5>
+                      <div className="prose prose-sm max-w-none text-gray-700">
+                        {generatedArticle.content.substring(0, 300)}
+                        {generatedArticle.content.length > 300 && '...'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Generation Info */}
+            {isGenerating && (
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-center space-x-2 text-sm text-blue-800">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Using {selectedProvider.toUpperCase()} to generate your {selectedCategory?.primary.toLowerCase().replace('_', ' ')} article</span>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          // Initial loading state
+          <motion.div
+            key="initial-loading"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-8 border border-blue-200 text-center"
+          >
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Loader2 className="w-6 h-6 text-white animate-spin" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Preparing Generation</h3>
+            <p className="text-gray-600">Setting up your personalized article generation...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Action Buttons */}
       <motion.div
@@ -73,18 +375,43 @@ export function GenerationStep() {
         <Button 
           variant="outline"
           onClick={handleBack}
+          disabled={isGenerating}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
         
-        <Button 
-          onClick={handleEdit}
-          size="lg"
-          className="min-w-[120px]"
-        >
-          Edit Article
-        </Button>
+        <div className="flex space-x-3">
+          {currentStage.stage === 'error' && retryCount >= 3 && (
+            <Button
+              onClick={handleBack}
+              variant="outline"
+            >
+              Modify Questions
+            </Button>
+          )}
+          
+          {generatedArticle && currentStage.stage === 'completed' && (
+            <Button 
+              onClick={handleEdit}
+              size="lg"
+              className="min-w-[120px]"
+            >
+              Edit Article
+            </Button>
+          )}
+          
+          {!generatedArticle && !isGenerating && currentStage.stage !== 'error' && (
+            <Button 
+              onClick={() => handleGenerate()}
+              size="lg"
+              className="min-w-[120px]"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate
+            </Button>
+          )}
+        </div>
       </motion.div>
     </div>
   )

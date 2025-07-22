@@ -27,6 +27,7 @@ interface WorkflowState {
   setQuestions: (questions: Question[]) => void
   addResponse: (response: Response) => void
   setGeneratedArticle: (article: Article) => void
+  updateGeneratedArticle: (updates: Partial<Article>) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setGenerationProgress: (progress: number) => void
@@ -74,6 +75,13 @@ export const useWorkflowStore = create<WorkflowState>()(
         },
         
         setGeneratedArticle: (article) => set({ generatedArticle: article }),
+        
+        updateGeneratedArticle: (updates) => {
+          const current = get().generatedArticle
+          if (current) {
+            set({ generatedArticle: { ...current, ...updates } })
+          }
+        },
         
         setLoading: (loading) => set({ isLoading: loading }),
         

@@ -3,6 +3,12 @@ import { AIProviderType, ContentCategory, Question, Article } from '@/types'
 import { useSettingsStore } from '@/store/settingsStore'
 import { ApiKeyManager } from '@/lib/api-key-manager'
 
+interface OptimizationOptions {
+  focus: 'seo' | 'readability' | 'engagement' | 'clarity'
+  targetLength?: number
+  tone?: 'professional' | 'casual' | 'academic'
+}
+
 interface UseAIProviderReturn {
   isConfigured: boolean
   isValidating: boolean
@@ -14,6 +20,7 @@ interface UseAIProviderReturn {
     category: ContentCategory, 
     responses: { question: string; answer: string }[]
   ) => Promise<Article>
+  optimizeContent: (content: string, options: OptimizationOptions) => Promise<string>
   setApiKey: (provider: AIProviderType, key: string) => void
   removeApiKey: (provider: AIProviderType) => void
 }
@@ -127,6 +134,34 @@ export const useAIProvider = (): UseAIProviderReturn => {
     return response.json()
   }, [selectedProvider, apiKeys])
 
+  const optimizeContent = useCallback(async (
+    content: string,
+    options: OptimizationOptions
+  ): Promise<string> => {
+    const apiKey = apiKeys[selectedProvider]
+    if (!apiKey) {
+      throw new Error('No API key configured for selected provider')
+    }
+
+    const response = await fetch('/api/optimize-content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        content,
+        options,
+        provider: selectedProvider,
+        apiKey 
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to optimize content')
+    }
+
+    const result = await response.json()
+    return result.optimizedContent
+  }, [selectedProvider, apiKeys])
+
   const setApiKey = useCallback(async (provider: AIProviderType, key: string) => {
     // Validate the key before storing
     const isValid = await validateApiKey(provider, key)
@@ -152,6 +187,7 @@ export const useAIProvider = (): UseAIProviderReturn => {
     analyzeCategory,
     generateQuestions,
     generateArticle,
+    optimizeContent,
     setApiKey,
     removeApiKey
   }
