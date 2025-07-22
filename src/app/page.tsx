@@ -19,13 +19,14 @@ export default function HomePage() {
           Transform your ideas into publication-ready Medium articles with the power of AI. 
           Generate high-quality content across multiple categories in minutes, not hours.
         </p>
-        <motion.button
+        <motion.a
+          href="/write"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 rounded-lg font-semibold text-lg shadow-lg"
+          className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-semibold text-lg shadow-lg transition-colors"
         >
           Start Writing with AI
-        </motion.button>
+        </motion.a>
       </motion.div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
@@ -46,8 +47,8 @@ export default function HomePage() {
         />
         <FeatureCard
           icon={<Settings className="w-8 h-8" />}
-          title="Multi-Provider AI"
-          description="Support for OpenAI, Gemini, Claude, and OpenRouter"
+          title="Bring Your Own Key"
+          description="Full privacy with your own OpenAI, Gemini, Claude, or OpenRouter API key"
         />
       </div>
 
