@@ -209,7 +209,7 @@ export class ApiKeyManager {
       apiKey,
       // Add default configurations based on provider type
       ...(this.getDefaultProviderConfig(provider)),
-    };
+    } as ProviderConfig;
   }
 
   /**
@@ -222,7 +222,7 @@ export class ApiKeyManager {
         type: provider,
         apiKey,
         ...this.getDefaultProviderConfig(provider),
-      };
+      } as ProviderConfig;
 
       // Import the provider factory dynamically to avoid circular dependencies
       const { AIProviderFactory } = await import('./ai-providers/provider-factory');
@@ -282,17 +282,53 @@ export class ApiKeyManager {
   }
 
   private getDefaultProviderConfig(provider: AIProviderType): Partial<ProviderConfig> {
+    const baseConfig = {
+      name: '',
+      models: [],
+      baseUrl: '',
+      apiKeyFormat: /.+/,
+      maxTokens: 4000,
+      supportsStreaming: false,
+    };
+
     switch (provider) {
       case 'openai':
-        return { model: 'gpt-4-turbo-preview' };
+        return { 
+          ...baseConfig,
+          name: 'OpenAI',
+          model: 'gpt-4-turbo-preview',
+          models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+          baseUrl: 'https://api.openai.com/v1',
+          supportsStreaming: true
+        };
       case 'gemini':
-        return { model: 'gemini-pro' };
-      case 'claude':
-        return { model: 'claude-3-sonnet-20240229' };
+        return { 
+          ...baseConfig,
+          name: 'Google Gemini',
+          model: 'gemini-pro',
+          models: ['gemini-pro', 'gemini-pro-vision'],
+          baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+          maxTokens: 8192
+        };
+      case 'anthropic':
+        return { 
+          ...baseConfig,
+          name: 'Anthropic Claude',
+          model: 'claude-3-sonnet-20240229',
+          models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
+          baseUrl: 'https://api.anthropic.com/v1',
+          maxTokens: 4096
+        };
       case 'openrouter':
-        return { model: 'openai/gpt-4-turbo-preview' };
+        return { 
+          ...baseConfig,
+          name: 'OpenRouter',
+          model: 'openai/gpt-4-turbo-preview',
+          models: ['multiple'],
+          baseUrl: 'https://openrouter.ai/api/v1'
+        };
       default:
-        return {};
+        return baseConfig;
     }
   }
 }

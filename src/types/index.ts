@@ -2,6 +2,10 @@
 
 export type AIProviderType = 'openai' | 'gemini' | 'anthropic' | 'openrouter'
 
+// Article formatting types
+export type ArticleTone = 'professional' | 'casual' | 'academic' | 'conversational'
+export type ArticleFormat = 'how-to' | 'listicle' | 'opinion' | 'personal-story' | 'tutorial' | 'analysis'
+
 export type CategoryType = 
   | 'TECHNOLOGY'
   | 'PERSONAL_DEVELOPMENT'
@@ -71,15 +75,23 @@ export interface UsageMetrics {
   failedRequests: number
   averageResponseTime: number
   lastUsed: Date
+  tokensUsed: number
+  requestCount: number
+  errorCount: number
 }
 
 export interface ProviderConfig {
+  type: AIProviderType
   name: string
+  apiKey: string
+  model?: string
+  baseURL?: string
   models: string[]
   baseUrl: string
   apiKeyFormat: RegExp
   maxTokens: number
   supportsStreaming: boolean
+  temperature?: number
 }
 
 // Error Types
@@ -88,6 +100,13 @@ export interface APIError {
   message: string
   provider?: AIProviderType
   details?: any
+}
+
+export interface AppError {
+  code: string
+  message: string
+  details?: any
+  timestamp?: Date
 }
 
 export interface ValidationError {
@@ -109,6 +128,16 @@ export interface ToastMessage {
   title: string
   message?: string
   duration?: number
+}
+
+// Generation Options
+export interface GenerationOptions {
+  wordCount: number
+  tone: ArticleTone
+  format: ArticleFormat
+  model?: string
+  temperature?: number
+  maxTokens?: number
 }
 
 // Export Formats

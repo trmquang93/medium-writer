@@ -1,4 +1,4 @@
-import { ContentCategory, GenerationOptions, Question, Response } from '@/types';
+import { CategoryType, ContentCategory, GenerationOptions, Question, Response } from '@/types';
 
 export interface CategoryPrompt {
   systemPrompt: string;
@@ -19,8 +19,8 @@ export interface QuestionTemplate {
 }
 
 export class PromptTemplateSystem {
-  private categoryPrompts: Record<ContentCategory, CategoryPrompt> = {
-    'technology': {
+  private categoryPrompts: Record<string, CategoryPrompt> = {
+    'TECHNOLOGY': {
       systemPrompt: `You are an expert technology writer specializing in creating comprehensive, engaging articles for Medium. Your expertise spans AI, programming, data science, web development, and emerging technologies. Write with authority while making complex concepts accessible to both beginners and experienced professionals.`,
       questionTemplates: [
         {
@@ -84,7 +84,7 @@ export class PromptTemplateSystem {
         conversational: 'Personal experience-driven, sharing lessons learned and practical insights'
       }
     },
-    'personal-development': {
+    'PERSONAL_DEVELOPMENT': {
       systemPrompt: `You are an experienced personal development coach and writer who creates transformative content for Medium. Your articles inspire positive change, provide actionable advice, and help readers develop better habits, mindset, and life skills.`,
       questionTemplates: [
         {
@@ -151,7 +151,7 @@ export class PromptTemplateSystem {
         conversational: 'Vulnerable and authentic, sharing personal struggles and breakthroughs'
       }
     },
-    'business': {
+    'BUSINESS': {
       systemPrompt: `You are a seasoned business strategist and entrepreneur who writes insightful Medium articles about business, entrepreneurship, finance, and leadership. Your content helps readers make better business decisions and grow their ventures.`,
       questionTemplates: [
         {
@@ -229,7 +229,7 @@ export class PromptTemplateSystem {
         conversational: 'Mentor-style guidance with personal business experiences and lessons learned'
       }
     },
-    'lifestyle': {
+    'LIFESTYLE': {
       systemPrompt: `You are a lifestyle writer who creates inspiring and practical content about relationships, health, wellness, travel, and life optimization. Your articles help readers live more fulfilling, balanced, and intentional lives.`,
       questionTemplates: [
         {
@@ -301,7 +301,7 @@ export class PromptTemplateSystem {
         conversational: 'Personal journey sharing with authentic experiences and lessons'
       }
     },
-    'current-affairs': {
+    'CURRENT_AFFAIRS': {
       systemPrompt: `You are an insightful current affairs writer who creates thoughtful Medium articles about politics, social issues, climate change, culture, and global events. Your content provides balanced analysis and helps readers understand complex issues.`,
       questionTemplates: [
         {
@@ -387,16 +387,16 @@ export class PromptTemplateSystem {
     }
   };
 
-  getCategoryPrompt(category: ContentCategory): CategoryPrompt {
+  getCategoryPrompt(category: CategoryType): CategoryPrompt {
     return this.categoryPrompts[category];
   }
 
-  getQuestionTemplates(category: ContentCategory): QuestionTemplate[] {
+  getQuestionTemplates(category: CategoryType): QuestionTemplate[] {
     return this.categoryPrompts[category].questionTemplates;
   }
 
   buildArticlePrompt(
-    category: ContentCategory,
+    category: CategoryType,
     userInput: string,
     responses: Response[],
     options: GenerationOptions
@@ -420,7 +420,7 @@ export class PromptTemplateSystem {
 
 ARTICLE TOPIC: ${userInput}
 
-CONTENT CATEGORY: ${category.toUpperCase()}
+CONTENT CATEGORY: ${category}
 
 ${contextSection}
 
@@ -483,7 +483,7 @@ Analyze the content, intent, and likely audience to make the best categorization
   }
 
   buildQuestionGenerationPrompt(
-    category: ContentCategory,
+    category: CategoryType,
     userInput: string,
     maxQuestions: number = 5
   ): string {
@@ -601,12 +601,12 @@ ${guidelines.map(guideline => `• ${guideline}`).join('\n')}
   }
 
   // Helper method to get all available categories
-  getAvailableCategories(): ContentCategory[] {
-    return Object.keys(this.categoryPrompts) as ContentCategory[];
+  getAvailableCategories(): CategoryType[] {
+    return Object.keys(this.categoryPrompts) as CategoryType[];
   }
 
   // Helper method to get category metadata
-  getCategoryMetadata(category: ContentCategory) {
+  getCategoryMetadata(category: CategoryType) {
     const prompt = this.getCategoryPrompt(category);
     return {
       category,

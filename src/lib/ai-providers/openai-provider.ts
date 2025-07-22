@@ -45,6 +45,10 @@ export class OpenAIProvider extends BaseAIProvider {
     requestCount: 0,
     errorCount: 0,
     averageResponseTime: 0,
+    totalRequests: 0,
+    successfulRequests: 0,
+    failedRequests: 0,
+    lastUsed: new Date(),
   };
 
   constructor(apiKey: string, model?: string) {
@@ -244,10 +248,15 @@ export class OpenAIProvider extends BaseAIProvider {
 
   private updateMetrics(tokens: number, responseTime: number, isError: boolean): void {
     this.usageMetrics.requestCount++;
+    this.usageMetrics.totalRequests++;
     this.usageMetrics.tokensUsed += tokens;
+    this.usageMetrics.lastUsed = new Date();
     
     if (isError) {
       this.usageMetrics.errorCount++;
+      this.usageMetrics.failedRequests++;
+    } else {
+      this.usageMetrics.successfulRequests++;
     }
 
     // Calculate running average of response times

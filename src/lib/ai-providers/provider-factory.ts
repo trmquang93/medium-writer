@@ -20,7 +20,7 @@ export class AIProviderFactory {
       case 'gemini':
         return new GeminiProvider(apiKey, model);
         
-      case 'claude':
+      case 'anthropic':
         return new ClaudeProvider(apiKey, model);
         
       case 'openrouter':
@@ -57,7 +57,7 @@ export class AIProviderFactory {
           temperature: 0.7,
         };
         
-      case 'claude':
+      case 'anthropic':
         return {
           model: 'claude-3-sonnet-20240229',
           maxTokens: 4096,
@@ -96,7 +96,7 @@ export class AIProviderFactory {
         requiresApiKey: true,
       },
       {
-        type: 'claude',
+        type: 'anthropic',
         name: 'Anthropic Claude',
         description: 'Claude 3 models optimized for helpful, harmless content',
         requiresApiKey: true,
@@ -196,7 +196,7 @@ export class AIProviderManager {
     }
 
     // Priority order based on general performance and reliability
-    const priorityOrder: AIProviderType[] = ['openai', 'claude', 'gemini', 'openrouter'];
+    const priorityOrder: AIProviderType[] = ['openai', 'anthropic', 'gemini', 'openrouter'];
     
     for (const preferredProvider of priorityOrder) {
       if (availableProviders.includes(preferredProvider)) {
@@ -221,11 +221,11 @@ export class AIProviderManager {
 
     // Content-specific recommendations
     const recommendations: Record<string, AIProviderType[]> = {
-      'technology': ['openai', 'claude', 'gemini'],
-      'business': ['claude', 'openai', 'gemini'],
-      'personal-development': ['claude', 'openai', 'gemini'],
-      'lifestyle': ['openai', 'gemini', 'claude'],
-      'current-affairs': ['claude', 'openai', 'gemini'],
+      'technology': ['openai', 'anthropic', 'gemini'],
+      'business': ['anthropic', 'openai', 'gemini'],
+      'personal-development': ['anthropic', 'openai', 'gemini'],
+      'lifestyle': ['openai', 'gemini', 'anthropic'],
+      'current-affairs': ['anthropic', 'openai', 'gemini'],
     };
 
     const preferred = recommendations[contentCategory] || recommendations['technology'];

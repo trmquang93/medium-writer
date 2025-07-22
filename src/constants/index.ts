@@ -1,37 +1,37 @@
-import { ContentCategory, ArticleTone, ArticleFormat, AIProviderType } from '@/types';
+import { CategoryType, ArticleTone, ArticleFormat, AIProviderType } from '@/types';
 
 // Content Categories Configuration
-export const CONTENT_CATEGORIES: Record<ContentCategory, {
+export const CONTENT_CATEGORIES: Record<CategoryType, {
   label: string;
   description: string;
   icon: string;
   examples: string[];
 }> = {
-  'technology': {
+  'TECHNOLOGY': {
     label: 'Technology',
     description: 'AI, Programming, Data Science, Web Development',
     icon: '💻',
     examples: ['AI tutorials', 'Programming guides', 'Tech trends', 'Development tools']
   },
-  'personal-development': {
+  'PERSONAL_DEVELOPMENT': {
     label: 'Personal Development',
     description: 'Self-improvement, Mental Health, Psychology',
     icon: '🌱',
     examples: ['Self-help', 'Productivity tips', 'Mental wellness', 'Life advice']
   },
-  'business': {
+  'BUSINESS': {
     label: 'Business',
     description: 'Entrepreneurship, Finance, Startups',
     icon: '💼',
     examples: ['Startup advice', 'Business strategy', 'Finance tips', 'Leadership']
   },
-  'lifestyle': {
+  'LIFESTYLE': {
     label: 'Lifestyle',
     description: 'Relationships, Health & Wellness',
     icon: '🌟',
     examples: ['Relationship advice', 'Health tips', 'Travel', 'Wellness']
   },
-  'current-affairs': {
+  'CURRENT_AFFAIRS': {
     label: 'Current Affairs',
     description: 'Politics, Climate Change, Culture',
     icon: '🌍',
@@ -64,8 +64,8 @@ export const AI_PROVIDERS: Record<AIProviderType, {
     websiteUrl: 'https://ai.google.dev',
     docsUrl: 'https://ai.google.dev/docs'
   },
-  claude: {
-    name: 'claude',
+  anthropic: {
+    name: 'anthropic',
     displayName: 'Anthropic Claude',
     description: 'Claude 3 models optimized for helpful, harmless, and honest content',
     models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
@@ -134,6 +134,11 @@ export const ARTICLE_FORMATS: Record<ArticleFormat, {
     label: 'Tutorial',
     description: 'Detailed educational content',
     structure: ['Overview', 'Learning objectives', 'Prerequisites', 'Main content', 'Practice exercises', 'Next steps']
+  },
+  'analysis': {
+    label: 'Analysis',
+    description: 'In-depth analytical content',
+    structure: ['Executive summary', 'Background', 'Data analysis', 'Insights', 'Implications', 'Conclusions']
   }
 };
 
