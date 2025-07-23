@@ -1,5 +1,8 @@
 # Medium AI Writing Assistant
 
+[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel&logoColor=white)](https://vercel.com)
+[![GitHub](https://img.shields.io/badge/Source-GitHub-black?logo=github&logoColor=white)](https://github.com/trmquang93/medium-writer)
+
 Transform your ideas into publication-ready Medium articles with the power of AI. Generate high-quality content across multiple categories in minutes, not hours.
 
 ## Features
