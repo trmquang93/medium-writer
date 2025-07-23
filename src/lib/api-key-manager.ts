@@ -136,11 +136,20 @@ export class ApiKeyManager {
       
       if (storedKey && storedKey.encrypted) {
         const decrypted = await this.decrypt(storedKey.key);
-        this.sessionKeys.set(provider, decrypted);
-        return decrypted;
+        // Validate the decrypted key is not empty or corrupted
+        if (decrypted && decrypted.trim().length > 0) {
+          this.sessionKeys.set(provider, decrypted);
+          return decrypted;
+        } else {
+          console.warn('Decrypted API key is empty or corrupted for provider:', provider);
+          // Remove corrupted key from storage
+          this.removeApiKey(provider);
+        }
       }
     } catch (error) {
-      console.warn('Failed to load encrypted API key:', error);
+      console.warn('Failed to load encrypted API key for provider:', provider, error);
+      // Remove corrupted key from storage if decryption fails
+      this.removeApiKey(provider);
     }
 
     return null;
@@ -190,9 +199,20 @@ export class ApiKeyManager {
   /**
    * Check if a provider has an API key configured
    */
-  hasApiKey(provider: AIProviderType): boolean {
-    return this.sessionKeys.has(provider) || 
-           this.getStoredKeys()[provider] !== undefined;
+  async hasApiKey(provider: AIProviderType): Promise<boolean> {
+    // Check session memory first
+    if (this.sessionKeys.has(provider)) {
+      return true;
+    }
+    
+    // Check if key exists and can be decrypted from storage
+    try {
+      const apiKey = await this.getApiKey(provider);
+      return apiKey !== null && apiKey.trim().length > 0;
+    } catch (error) {
+      console.warn('Error checking API key for provider:', provider, error);
+      return false;
+    }
   }
 
   /**
@@ -305,10 +325,10 @@ export class ApiKeyManager {
         return { 
           ...baseConfig,
           name: 'Google Gemini',
-          model: 'gemini-pro',
-          models: ['gemini-pro', 'gemini-pro-vision'],
+          model: 'gemini-2.5-pro',
+          models: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'],
           baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-          maxTokens: 8192
+          maxTokens: 128000
         };
       case 'anthropic':
         return { 

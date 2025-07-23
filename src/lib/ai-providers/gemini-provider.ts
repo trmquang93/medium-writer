@@ -1,4 +1,4 @@
-import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
+import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk, StructuredGenerationRequest } from './base-provider';
 import { UsageMetrics, AIProviderType, ModelInfo } from '@/types';
 
 interface GeminiContent {
@@ -52,7 +52,7 @@ export class GeminiProvider extends BaseAIProvider {
   }
 
   getDefaultModel(): string {
-    return 'gemini-pro';
+    return 'gemini-2.5-pro';
   }
 
   getDefaultBaseURL(): string {
@@ -62,32 +62,50 @@ export class GeminiProvider extends BaseAIProvider {
   getAvailableModels(): ModelInfo[] {
     return [
       {
-        id: 'gemini-pro',
-        name: 'Gemini Pro',
-        description: 'Google\'s flagship generative AI model',
-        maxTokens: 32768,
-        inputCostPer1000: 0.0005,
-        outputCostPer1000: 0.0015,
-        capabilities: ['text-generation', 'analysis', 'reasoning'],
+        id: 'gemini-2.5-pro',
+        name: 'Gemini 2.5 Pro',
+        description: 'Google\'s most advanced AI model with superior reasoning capabilities',
+        maxTokens: 1000000,
+        inputCostPer1000: 0.00125, // $1.25 per 1M tokens (≤200k tokens)
+        outputCostPer1000: 0.01, // $10.00 per 1M tokens (≤200k tokens)
+        capabilities: ['text-generation', 'analysis', 'reasoning', 'long-context', 'advanced-reasoning', 'multimodal'],
         isDefault: true,
       },
       {
-        id: 'gemini-1.5-pro',
-        name: 'Gemini 1.5 Pro',
-        description: 'Latest Gemini model with enhanced capabilities',
-        maxTokens: 128000,
-        inputCostPer1000: 0.0035,
-        outputCostPer1000: 0.0105,
-        capabilities: ['text-generation', 'analysis', 'reasoning', 'long-context'],
+        id: 'gemini-2.5-flash',
+        name: 'Gemini 2.5 Flash',
+        description: 'Fast and efficient version of Gemini 2.5 with 1M context window',
+        maxTokens: 1000000,
+        inputCostPer1000: 0.0003, // $0.30 per 1M tokens
+        outputCostPer1000: 0.0025, // $2.50 per 1M tokens
+        capabilities: ['text-generation', 'conversation', 'fast-response', 'high-throughput', 'multimodal'],
       },
       {
-        id: 'gemini-1.5-flash',
-        name: 'Gemini 1.5 Flash',
-        description: 'Faster, lighter version of Gemini 1.5',
-        maxTokens: 32768,
-        inputCostPer1000: 0.00035,
-        outputCostPer1000: 0.00105,
-        capabilities: ['text-generation', 'conversation', 'fast-response'],
+        id: 'gemini-2.5-flash-lite',
+        name: 'Gemini 2.5 Flash Lite',
+        description: 'Ultra-fast and cost-effective version of Gemini 2.5',
+        maxTokens: 128000,
+        inputCostPer1000: 0.0001, // $0.10 per 1M tokens
+        outputCostPer1000: 0.0004, // $0.40 per 1M tokens
+        capabilities: ['text-generation', 'conversation', 'fast-response', 'cost-effective', 'multimodal'],
+      },
+      {
+        id: 'gemini-2.0-flash',
+        name: 'Gemini 2.0 Flash',
+        description: 'Balanced performance and cost with 1M context window',
+        maxTokens: 1000000,
+        inputCostPer1000: 0.0001, // $0.10 per 1M tokens
+        outputCostPer1000: 0.0004, // $0.40 per 1M tokens
+        capabilities: ['text-generation', 'conversation', 'fast-response', 'multimodal'],
+      },
+      {
+        id: 'gemini-2.0-flash-lite',
+        name: 'Gemini 2.0 Flash Lite',
+        description: 'Most cost-effective option with reliable performance',
+        maxTokens: 128000,
+        inputCostPer1000: 0.000075, // $0.075 per 1M tokens
+        outputCostPer1000: 0.0003, // $0.30 per 1M tokens
+        capabilities: ['text-generation', 'conversation', 'fast-response', 'cost-effective'],
       },
     ];
   }
@@ -108,20 +126,42 @@ export class GeminiProvider extends BaseAIProvider {
     }
   }
 
+  // Override structured prompt building for Gemini's format examples
+  protected buildStructuredPrompt<T>(request: StructuredGenerationRequest<T>): string {
+    let prompt = request.prompt;
+    
+    if (request.expectsJson) {
+      prompt += "\n\nIMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or code blocks. Return only the raw JSON object that matches the requested format.";
+      
+      // Add examples for better JSON formatting with Gemini
+      if (request.prefill) {
+        prompt += `\n\nExample format: ${request.prefill}...`;
+      }
+    }
+    
+    return prompt;
+  }
+
+  // Enhanced generateContent with improved JSON handling
   async generateContent(request: GenerationRequest): Promise<GenerationResponse> {
     this.validateGenerationOptions(request.options);
 
     const startTime = Date.now();
 
     try {
+      const structuredRequest = request as any as StructuredGenerationRequest;
+      const finalPrompt = structuredRequest.expectsJson ? 
+        this.buildStructuredPrompt(structuredRequest) : 
+        request.prompt;
+        
       const geminiRequest: GeminiRequest = {
         contents: [
           {
-            parts: [{ text: request.prompt }],
+            parts: [{ text: finalPrompt }],
           },
         ],
         generationConfig: {
-          maxOutputTokens: Math.min(8192, Math.ceil(request.options.wordCount * 1.5)),
+          maxOutputTokens: Math.min(8192, Math.max(2000, Math.ceil(request.options.wordCount * 2.5))),
           temperature: this.getTemperatureForTone(request.options.tone),
           topP: 0.8,
           topK: 40,
@@ -149,8 +189,24 @@ export class GeminiProvider extends BaseAIProvider {
       const geminiResponse = response as GeminiResponse;
       const responseTime = Date.now() - startTime;
 
+      console.log('Gemini API raw response:', JSON.stringify(geminiResponse, null, 2));
+
       if (!geminiResponse.candidates || geminiResponse.candidates.length === 0) {
         throw new Error('No content generated from Gemini API');
+      }
+
+      if (!geminiResponse.candidates[0].content) {
+        throw new Error('Invalid response structure from Gemini API');
+      }
+
+      // Handle case where parts might be missing (common with MAX_TOKENS finish reason)
+      if (!geminiResponse.candidates[0].content.parts || geminiResponse.candidates[0].content.parts.length === 0) {
+        if (geminiResponse.candidates[0].finishReason === 'MAX_TOKENS') {
+          const thoughtsTokens = geminiResponse.usageMetadata?.thoughtsTokenCount || 0;
+          const outputTokens = geminiResponse.usageMetadata?.candidatesTokenCount || 0;
+          throw new Error(`Response truncated due to token limit. Thinking tokens: ${thoughtsTokens}, Output tokens: ${outputTokens}. Consider using a different model for structured generation.`);
+        }
+        throw new Error('No content parts in Gemini API response');
       }
 
       const content = geminiResponse.candidates[0].content.parts
