@@ -36,6 +36,30 @@ export const CONTENT_CATEGORIES: Record<CategoryType, {
     description: 'Politics, Climate Change, Culture',
     icon: '🌍',
     examples: ['Political analysis', 'Climate issues', 'Cultural trends', 'Social commentary']
+  },
+  'CREATIVE_WRITING': {
+    label: 'Creative Writing',
+    description: 'Fiction, Poetry, Storytelling, Creative Expression',
+    icon: '✍️',
+    examples: ['Short stories', 'Poetry analysis', 'Writing techniques', 'Character development', 'Narrative craft']
+  },
+  'EDUCATION_LEARNING': {
+    label: 'Education & Learning',
+    description: 'Teaching, Learning Methods, Educational Technology, Skill Development',
+    icon: '📚',
+    examples: ['Learning techniques', 'Educational tools', 'Study methods', 'Teaching strategies', 'Online learning']
+  },
+  'ENTERTAINMENT_MEDIA': {
+    label: 'Entertainment & Media',
+    description: 'Movies, TV Shows, Music, Gaming, Pop Culture, Media Analysis',
+    icon: '🎬',
+    examples: ['Movie reviews', 'TV show analysis', 'Music industry trends', 'Gaming culture', 'Entertainment news']
+  },
+  'SCIENCE_RESEARCH': {
+    label: 'Science & Research',
+    description: 'Scientific Discoveries, Research Methods, Academic Studies, Science Communication',
+    icon: '🔬',
+    examples: ['Research findings', 'Scientific methodology', 'Study analysis', 'Science communication', 'Academic insights']
   }
 };
 

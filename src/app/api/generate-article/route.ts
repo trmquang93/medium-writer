@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AIProviderType, ContentCategory, Article, Response, GenerationOptions } from '@/types'
 import { promptTemplates } from '@/lib/prompt-templates'
 
+// Helper function to create fetch requests with timeout
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = 50000): Promise<Response> {
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(() => abortController.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: abortController.signal
+    })
+    clearTimeout(timeoutId)
+    return response
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`)
+    }
+    throw error
+  }
+}
+
 // Helper function to generate unique article ID
 function generateArticleId(): string {
   return `article_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -111,7 +132,7 @@ export async function POST(request: NextRequest) {
       // Generate article content using the selected AI provider
       switch (provider as AIProviderType) {
         case 'openai':
-          const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          const openaiResponse = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -123,7 +144,7 @@ export async function POST(request: NextRequest) {
               temperature: generationOptions.temperature,
               max_tokens: generationOptions.maxTokens
             })
-          })
+          }, 50000)
 
           if (!openaiResponse.ok) {
             const errorData = await openaiResponse.json().catch(() => ({}))
@@ -136,7 +157,7 @@ export async function POST(request: NextRequest) {
 
         case 'gemini':
           const geminiModel = model || 'gemini-pro'
-          const geminiResponse = await fetch(
+          const geminiResponse = await fetchWithTimeout(
             `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
             {
               method: 'POST',
@@ -148,7 +169,8 @@ export async function POST(request: NextRequest) {
                   maxOutputTokens: generationOptions.maxTokens
                 }
               })
-            }
+            },
+            50000
           )
 
           if (!geminiResponse.ok) {
@@ -161,7 +183,7 @@ export async function POST(request: NextRequest) {
           break
 
         case 'anthropic':
-          const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          const claudeResponse = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
               'x-api-key': apiKey,
@@ -174,7 +196,7 @@ export async function POST(request: NextRequest) {
               temperature: generationOptions.temperature,
               messages: [{ role: 'user', content: articlePrompt }]
             })
-          })
+          }, 50000)
 
           if (!claudeResponse.ok) {
             const errorData = await claudeResponse.json().catch(() => ({}))
@@ -186,7 +208,7 @@ export async function POST(request: NextRequest) {
           break
 
         case 'openrouter':
-          const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          const openrouterResponse = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -200,7 +222,7 @@ export async function POST(request: NextRequest) {
               temperature: generationOptions.temperature,
               max_tokens: generationOptions.maxTokens
             })
-          })
+          }, 50000)
 
           if (!openrouterResponse.ok) {
             const errorData = await openrouterResponse.json().catch(() => ({}))

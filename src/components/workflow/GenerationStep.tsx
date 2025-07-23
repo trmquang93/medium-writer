@@ -14,12 +14,14 @@ import {
   Loader2,
   Sparkles,
   Brain,
-  Target
+  Target,
+  Key
 } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { useAIProvider } from '@/hooks/useAIProvider'
 import { useSettingsStore } from '@/store/settingsStore'
 import { Button } from '../ui/Button'
+import { ApiKeyManager } from '../ui/ApiKeyManager'
 import { cn } from '@/lib/utils'
 
 interface GenerationProgress {
@@ -49,7 +51,7 @@ export function GenerationStep() {
     error 
   } = useWorkflowStore()
   
-  const { generateArticle } = useAIProvider()
+  const { generateArticle, isConfigured } = useAIProvider()
   const { selectedProvider } = useSettingsStore()
   
   const [currentStage, setCurrentStage] = useState<GenerationProgress>(generationStages[0])
@@ -57,6 +59,7 @@ export function GenerationStep() {
   const [retryCount, setRetryCount] = useState(0)
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [showApiKeyManager, setShowApiKeyManager] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout>()
 
   // Timer effect for elapsed time
@@ -76,15 +79,31 @@ export function GenerationStep() {
     }
   }, [isGenerating, startTime])
 
-  // Auto-start generation when component mounts (if no article exists)
+  // Auto-start generation when component mounts (if no article exists and API key is configured)
   useEffect(() => {
-    if (!generatedArticle && !isGenerating && !error) {
+    let mounted = true
+    
+    if (!generatedArticle && !isGenerating && !error && mounted && isConfigured) {
       handleGenerate()
+    } else if (!isConfigured && !error) {
+      setError('No API key configured. Please set up your AI provider first.')
+      setCurrentStage({
+        stage: 'error',
+        progress: 0,
+        message: 'API key required. Please configure your AI provider.'
+      })
     }
-  }, [])
 
-  const simulateProgressStages = async (): Promise<void> => {
+    return () => {
+      mounted = false
+    }
+  }, [isConfigured])
+
+  const simulateProgressStages = async (abortSignal?: AbortSignal): Promise<void> => {
     for (const stage of generationStages.slice(0, -1)) {
+      if (abortSignal?.aborted) {
+        throw new Error('Progress simulation aborted')
+      }
       setCurrentStage(stage)
       // Randomize timing to make it feel more natural
       await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1000))
@@ -97,6 +116,31 @@ export function GenerationStep() {
       return
     }
 
+    if (!isConfigured) {
+      setError('No API key configured. Please set up your AI provider first.')
+      setCurrentStage({
+        stage: 'error',
+        progress: 0,
+        message: 'API key required. Please configure your AI provider.'
+      })
+      return
+    }
+
+    // Prevent multiple concurrent generations
+    if (isGenerating) {
+      console.warn('Generation already in progress, ignoring duplicate request')
+      return
+    }
+
+    console.log('Starting article generation:', {
+      provider: selectedProvider,
+      category: selectedCategory.primary,
+      userInput: userInput.substring(0, 100) + '...',
+      responseCount: responses.length,
+      isRetry,
+      retryCount
+    })
+
     setIsGenerating(true)
     setStartTime(new Date())
     setError(null)
@@ -105,35 +149,77 @@ export function GenerationStep() {
       setRetryCount(prev => prev + 1)
     }
 
+    // Create abort controller for cleanup
+    const abortController = new AbortController()
+
     try {
-      // Start progress simulation
-      const progressPromise = simulateProgressStages()
-      
       // Prepare responses data for the API
       const responseData = responses.map(r => ({
         question: r.question,
         answer: r.answer
       }))
 
-      // Generate article
-      const generationPromise = generateArticle(userInput, selectedCategory, responseData)
+      console.log('Starting progress simulation and API call...')
+
+      // Start progress simulation (don't wait for it)
+      const progressPromise = simulateProgressStages(abortController.signal).catch((err) => {
+        console.log('Progress simulation ended:', err.message)
+      })
+
+      // Generate article with timeout handling
+      console.log('Calling generateArticle API...')
+      const startTime = Date.now()
+      const article = await generateArticle(userInput, selectedCategory, responseData)
+      const duration = Date.now() - startTime
       
-      // Wait for both progress simulation and actual generation
-      await Promise.all([progressPromise, generationPromise.then(article => {
-        setGeneratedArticle(article)
-        setCurrentStage(generationStages[generationStages.length - 1])
-      })])
+      console.log('Article generation completed:', {
+        duration: `${duration}ms`,
+        title: article.title,
+        wordCount: article.wordCount,
+        provider: selectedProvider
+      })
+      
+      // Article generated successfully
+      setGeneratedArticle(article)
+      setCurrentStage(generationStages[generationStages.length - 1])
+      
+      // Abort any ongoing progress simulation
+      abortController.abort()
 
     } catch (error) {
-      console.error('Article generation failed:', error)
+      console.error('Article generation failed:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        provider: selectedProvider,
+        duration: startTime ? Date.now() - startTime.getTime() : 'unknown'
+      })
+      
+      // Abort progress simulation
+      abortController.abort()
+      
+      let errorMessage = 'Generation failed. Please try again.'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout') || error.message.includes('AbortError')) {
+          errorMessage = 'Request timed out. Please check your internet connection and try again.'
+        } else if (error.message.includes('API key')) {
+          errorMessage = 'API key issue. Please check your AI provider configuration.'
+        } else if (error.message.includes('rate limit') || error.message.includes('quota')) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment and try again.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
       setCurrentStage({
         stage: 'error',
         progress: 0,
-        message: error instanceof Error ? error.message : 'Generation failed. Please try again.'
+        message: errorMessage
       })
-      setError(error instanceof Error ? error.message : 'Failed to generate article')
+      setError(errorMessage)
     } finally {
       setIsGenerating(false)
+      console.log('Generation process completed, isGenerating set to false')
     }
   }
 
@@ -282,17 +368,34 @@ export function GenerationStep() {
                   <div className="flex-1">
                     <h4 className="text-red-900 font-medium mb-2">Generation Failed</h4>
                     <p className="text-red-800 text-sm mb-4">{error || currentStage.message}</p>
-                    {retryCount < 3 && (
-                      <Button
-                        onClick={handleRetry}
-                        variant="outline"
-                        size="sm"
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Try Again {retryCount > 0 && `(${retryCount + 1}/3)`}
-                      </Button>
-                    )}
+                    
+                    <div className="flex space-x-2">
+                      {/* Show API key setup button if not configured */}
+                      {!isConfigured && (
+                        <Button
+                          onClick={() => setShowApiKeyManager(true)}
+                          variant="outline"
+                          size="sm"
+                          className="border-red-300 text-red-700 hover:bg-red-50"
+                        >
+                          <Key className="w-4 h-4 mr-2" />
+                          Configure API Key
+                        </Button>
+                      )}
+                      
+                      {/* Show retry button if configured and retry count < 3 */}
+                      {isConfigured && retryCount < 3 && (
+                        <Button
+                          onClick={handleRetry}
+                          variant="outline"
+                          size="sm"
+                          className="border-red-300 text-red-700 hover:bg-red-50"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Try Again {retryCount > 0 && `(${retryCount + 1}/3)`}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -401,7 +504,7 @@ export function GenerationStep() {
             </Button>
           )}
           
-          {!generatedArticle && !isGenerating && currentStage.stage !== 'error' && (
+          {!generatedArticle && !isGenerating && currentStage.stage !== 'error' && isConfigured && (
             <Button 
               onClick={() => handleGenerate()}
               size="lg"
@@ -411,8 +514,25 @@ export function GenerationStep() {
               Generate
             </Button>
           )}
+          
+          {!generatedArticle && !isGenerating && currentStage.stage !== 'error' && !isConfigured && (
+            <Button 
+              onClick={() => setShowApiKeyManager(true)}
+              size="lg"
+              className="min-w-[120px]"
+            >
+              <Key className="w-4 h-4 mr-2" />
+              Configure API Key
+            </Button>
+          )}
         </div>
       </motion.div>
+      
+      {/* API Key Manager Modal */}
+      <ApiKeyManager 
+        isOpen={showApiKeyManager} 
+        onClose={() => setShowApiKeyManager(false)} 
+      />
     </div>
   )
 }

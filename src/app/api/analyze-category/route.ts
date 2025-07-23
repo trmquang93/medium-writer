@@ -20,6 +20,10 @@ Analyze the following article idea and categorize it into one of these content c
 3. BUSINESS - Entrepreneurship, Finance, Startups, Management, Marketing
 4. LIFESTYLE - Relationships, Health & Wellness, Travel, Food, Culture
 5. CURRENT_AFFAIRS - Politics, Climate, Social Issues, News, Opinion
+6. CREATIVE_WRITING - Fiction, Poetry, Storytelling, Literary Analysis, Creative Expression, Narrative Craft
+7. EDUCATION_LEARNING - Teaching Methods, Learning Techniques, Educational Technology, Skill Development, Academic Success
+8. ENTERTAINMENT_MEDIA - Movies, TV Shows, Music, Gaming, Pop Culture, Media Analysis, Celebrity Culture
+9. SCIENCE_RESEARCH - Scientific Discoveries, Research Methodology, Academic Studies, Science Communication, Peer Review
 
 Article idea: "${input}"
 
@@ -126,6 +130,16 @@ The confidence should be between 0.0 and 1.0. Secondary category is optional.
             primary = 'LIFESTYLE'
           } else if (lowerInput.includes('development') || lowerInput.includes('productivity')) {
             primary = 'PERSONAL_DEVELOPMENT'
+          } else if (lowerInput.includes('fiction') || lowerInput.includes('writing') || lowerInput.includes('story') || lowerInput.includes('poetry') || lowerInput.includes('creative')) {
+            primary = 'CREATIVE_WRITING'
+          } else if (lowerInput.includes('politics') || lowerInput.includes('climate') || lowerInput.includes('current') || lowerInput.includes('affairs')) {
+            primary = 'CURRENT_AFFAIRS'
+          } else if (lowerInput.includes('education') || lowerInput.includes('learning') || lowerInput.includes('teaching') || lowerInput.includes('study') || lowerInput.includes('academic')) {
+            primary = 'EDUCATION_LEARNING'
+          } else if (lowerInput.includes('movie') || lowerInput.includes('music') || lowerInput.includes('game') || lowerInput.includes('entertainment') || lowerInput.includes('media') || lowerInput.includes('tv') || lowerInput.includes('celebrity')) {
+            primary = 'ENTERTAINMENT_MEDIA'
+          } else if (lowerInput.includes('science') || lowerInput.includes('research') || lowerInput.includes('study') || lowerInput.includes('scientific') || lowerInput.includes('academic')) {
+            primary = 'SCIENCE_RESEARCH'
           }
 
           categoryAnalysis = {

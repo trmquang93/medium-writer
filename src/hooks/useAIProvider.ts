@@ -87,22 +87,41 @@ export const useAIProvider = (): UseAIProviderReturn => {
 
     const selectedModel = getSelectedModel(selectedProvider)
     
-    const response = await fetch('/api/analyze-category', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        input, 
-        provider: selectedProvider,
-        model: selectedModel,
-        apiKey 
+    // Create AbortController for request cancellation
+    const abortController = new AbortController()
+    const timeoutId = setTimeout(() => {
+      abortController.abort()
+    }, 30000) // 30 second timeout for category analysis
+
+    try {
+      const response = await fetch('/api/analyze-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          input, 
+          provider: selectedProvider,
+          model: selectedModel,
+          apiKey 
+        }),
+        signal: abortController.signal
       })
-    })
 
-    if (!response.ok) {
-      throw new Error('Failed to analyze category')
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.details || 'Failed to analyze category')
+      }
+
+      return response.json()
+    } catch (error) {
+      clearTimeout(timeoutId)
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Category analysis timed out. Please try again.')
+      }
+      throw error
     }
-
-    return response.json()
   }, [selectedProvider, getApiKey])
 
   const generateQuestions = useCallback(async (
@@ -116,23 +135,42 @@ export const useAIProvider = (): UseAIProviderReturn => {
 
     const selectedModel = getSelectedModel(selectedProvider)
     
-    const response = await fetch('/api/generate-questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        input, 
-        category,
-        provider: selectedProvider,
-        model: selectedModel,
-        apiKey 
+    // Create AbortController for request cancellation
+    const abortController = new AbortController()
+    const timeoutId = setTimeout(() => {
+      abortController.abort()
+    }, 30000) // 30 second timeout for question generation
+
+    try {
+      const response = await fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          input, 
+          category,
+          provider: selectedProvider,
+          model: selectedModel,
+          apiKey 
+        }),
+        signal: abortController.signal
       })
-    })
 
-    if (!response.ok) {
-      throw new Error('Failed to generate questions')
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.details || 'Failed to generate questions')
+      }
+
+      return response.json()
+    } catch (error) {
+      clearTimeout(timeoutId)
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Question generation timed out. Please try again.')
+      }
+      throw error
     }
-
-    return response.json()
   }, [selectedProvider, getApiKey])
 
   const generateArticle = useCallback(async (
@@ -147,24 +185,47 @@ export const useAIProvider = (): UseAIProviderReturn => {
 
     const selectedModel = getSelectedModel(selectedProvider)
     
-    const response = await fetch('/api/generate-article', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        input, 
-        category,
-        responses,
-        provider: selectedProvider,
-        model: selectedModel,
-        apiKey 
-      })
-    })
+    // Create AbortController for request cancellation
+    const abortController = new AbortController()
+    const timeoutId = setTimeout(() => {
+      abortController.abort()
+    }, 60000) // 60 second timeout
 
-    if (!response.ok) {
+    try {
+      const response = await fetch('/api/generate-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          input, 
+          category,
+          responses,
+          provider: selectedProvider,
+          model: selectedModel,
+          apiKey 
+        }),
+        signal: abortController.signal
+      })
+
+      // Clear timeout if request completes
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.details || `Request failed with status ${response.status}`)
+      }
+
+      return response.json()
+    } catch (error) {
+      clearTimeout(timeoutId)
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Article generation timed out after 60 seconds. Please try again or check your internet connection.')
+        }
+        throw error
+      }
       throw new Error('Failed to generate article')
     }
-
-    return response.json()
   }, [selectedProvider, getApiKey])
 
   const optimizeContent = useCallback(async (

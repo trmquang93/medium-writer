@@ -44,6 +44,34 @@ const categories = [
     description: 'Politics, Climate, Social Issues, News, Opinion',
     icon: '🌍',
     color: 'bg-red-500'
+  },
+  {
+    id: 'CREATIVE_WRITING' as CategoryType,
+    name: 'Creative Writing',
+    description: 'Fiction, Poetry, Storytelling, Creative Expression',
+    icon: '✍️',
+    color: 'bg-indigo-500'
+  },
+  {
+    id: 'EDUCATION_LEARNING' as CategoryType,
+    name: 'Education & Learning',
+    description: 'Teaching, Learning Methods, Educational Technology',
+    icon: '📚',
+    color: 'bg-teal-500'
+  },
+  {
+    id: 'ENTERTAINMENT_MEDIA' as CategoryType,
+    name: 'Entertainment & Media',
+    description: 'Movies, TV, Music, Gaming, Pop Culture Analysis',
+    icon: '🎬',
+    color: 'bg-pink-500'
+  },
+  {
+    id: 'SCIENCE_RESEARCH' as CategoryType,
+    name: 'Science & Research',
+    description: 'Scientific Discoveries, Research Methods, Academic Studies',
+    icon: '🔬',
+    color: 'bg-emerald-500'
   }
 ]
 

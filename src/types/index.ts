@@ -12,6 +12,10 @@ export type CategoryType =
   | 'BUSINESS'
   | 'LIFESTYLE'
   | 'CURRENT_AFFAIRS'
+  | 'CREATIVE_WRITING'
+  | 'EDUCATION_LEARNING'
+  | 'ENTERTAINMENT_MEDIA'
+  | 'SCIENCE_RESEARCH'
 
 export interface ContentCategory {
   primary: CategoryType
