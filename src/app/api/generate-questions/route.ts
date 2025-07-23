@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AIProviderType, Question } from '@/types'
 import { promptTemplates } from '@/lib/prompt-templates'
+import { AIProviderFactory } from '@/lib/ai-providers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,124 +33,39 @@ export async function POST(request: NextRequest) {
     let questions: Question[]
 
     try {
-      switch (provider as AIProviderType) {
-        case 'openai':
-          const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: 'gpt-3.5-turbo',
-              messages: [{ role: 'user', content: questionPrompt }],
-              temperature: 0.7,
-              max_tokens: 800
-            })
-          })
+      // Create AI provider instance using the factory
+      const aiProvider = AIProviderFactory.createProvider(provider, apiKey);
+      
+      // Determine the prefill based on provider capabilities (for JSON array)
+      const prefill = aiProvider.supportsPrefilling() ? '[' : undefined;
+      
+      console.log(`Using ${provider} provider for question generation with prefilling: ${!!prefill}`);
+      
+      // Use structured generation with prefilling
+      const response = await aiProvider.generateStructuredContent<Question[]>({
+        prompt: questionPrompt,
+        prefill,
+        expectsJson: true,
+        options: {
+          wordCount: 800, // Medium response for questions
+          tone: 'conversational',
+          format: 'how-to'
+        },
+        maxRetries: 2
+      });
 
-          if (!openaiResponse.ok) {
-            const errorData = await openaiResponse.json().catch(() => ({}))
-            throw new Error(`OpenAI API request failed: ${errorData.error?.message || 'Unknown error'}`)
-          }
+      console.log('Question generation response:', {
+        parsed: response.parsed,
+        questionsCount: Array.isArray(response.data) ? response.data.length : 'not-array',
+        raw: response.raw.substring(0, 200) + '...'
+      });
 
-          const openaiData = await openaiResponse.json()
-          const openaiContent = openaiData.choices[0].message.content
-          questions = JSON.parse(openaiContent)
-          break
-
-        case 'gemini':
-          const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: questionPrompt }] }],
-                generationConfig: {
-                  temperature: 0.7,
-                  maxOutputTokens: 800
-                }
-              })
-            }
-          )
-
-          if (!geminiResponse.ok) {
-            const errorData = await geminiResponse.json().catch(() => ({}))
-            throw new Error(`Gemini API request failed: ${errorData.error?.message || 'Unknown error'}`)
-          }
-
-          const geminiData = await geminiResponse.json()
-          const geminiContent = geminiData.candidates[0].content.parts[0].text
-          questions = JSON.parse(geminiContent)
-          break
-
-        case 'anthropic':
-          const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-              model: 'claude-3-haiku-20240307',
-              max_tokens: 800,
-              temperature: 0.7,
-              messages: [{ role: 'user', content: questionPrompt }]
-            })
-          })
-
-          if (!claudeResponse.ok) {
-            const errorData = await claudeResponse.json().catch(() => ({}))
-            throw new Error(`Claude API request failed: ${errorData.error?.message || 'Unknown error'}`)
-          }
-
-          const claudeData = await claudeResponse.json()
-          const claudeContent = claudeData.content[0].text
-          questions = JSON.parse(claudeContent)
-          break
-
-        case 'openrouter':
-          const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://medium-writer.vercel.app',
-              'X-Title': 'Medium AI Writer'
-            },
-            body: JSON.stringify({
-              model: 'openai/gpt-3.5-turbo',
-              messages: [{ role: 'user', content: questionPrompt }],
-              temperature: 0.7,
-              max_tokens: 800
-            })
-          })
-
-          if (!openrouterResponse.ok) {
-            const errorData = await openrouterResponse.json().catch(() => ({}))
-            throw new Error(`OpenRouter API request failed: ${errorData.error?.message || 'Unknown error'}`)
-          }
-
-          const openrouterData = await openrouterResponse.json()
-          const openrouterContent = openrouterData.choices[0].message.content
-          questions = JSON.parse(openrouterContent)
-          break
-
-        default:
-          // Fallback to template-based questions when provider is not supported
-          const categoryPrompt = promptTemplates.getCategoryPrompt(category.primary)
-          questions = categoryPrompt.questionTemplates.slice(0, 5).map((template) => ({
-            id: template.id,
-            text: template.question,
-            type: template.type as 'text' | 'select' | 'multiselect' | 'number',
-            required: template.required,
-            options: template.options,
-            placeholder: template.placeholder,
-            category: category.primary
-          }))
+      if (!response.parsed || !Array.isArray(response.data)) {
+        console.warn('Failed to parse structured response, attempting fallback');
+        throw new Error('Failed to parse question generation response');
       }
+
+      questions = response.data;
 
       // Validate and clean the questions response
       if (!Array.isArray(questions)) {
@@ -176,6 +92,23 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(validatedQuestions)
+
+    } catch (structuredError) {
+      console.warn('Structured generation failed, attempting template fallback:', structuredError);
+      
+      // Fallback to template-based questions
+      const categoryPrompt = promptTemplates.getCategoryPrompt(category.primary)
+      questions = categoryPrompt.questionTemplates.slice(0, 5).map((template) => ({
+        id: template.id,
+        text: template.question,
+        type: template.type as 'text' | 'select' | 'multiselect' | 'number',
+        required: template.required,
+        options: template.options,
+        placeholder: template.placeholder,
+        category: category.primary
+      }))
+      
+      return NextResponse.json(questions)
 
     } catch (parseError) {
       console.error('Question generation error:', parseError)

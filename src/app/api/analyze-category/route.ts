@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AIProviderType, ContentCategory, CategoryType } from '@/types'
+import { AIProviderFactory } from '@/lib/ai-providers'
 
 export async function POST(request: NextRequest) {
   try {
-    const { input, provider, apiKey } = await request.json()
+    const { input, provider, apiKey, model } = await request.json()
 
     if (!input || !provider || !apiKey) {
       return NextResponse.json(
@@ -27,7 +28,8 @@ Analyze the following article idea and categorize it into one of these content c
 
 Article idea: "${input}"
 
-Respond with ONLY a JSON object in this exact format:
+IMPORTANT: Respond with ONLY a valid JSON object. Do not include any explanatory text, markdown formatting, or code blocks. Return only the raw JSON:
+
 {
   "primary": "TECHNOLOGY",
   "secondary": "BUSINESS",
@@ -41,140 +43,96 @@ The confidence should be between 0.0 and 1.0. Secondary category is optional.
     let categoryAnalysis: ContentCategory
 
     try {
-      switch (provider as AIProviderType) {
-        case 'openai':
-          const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: 'gpt-3.5-turbo',
-              messages: [{ role: 'user', content: categoryPrompt }],
-              temperature: 0.3,
-              max_tokens: 200
-            })
-          })
+      // Create AI provider instance using the factory
+      const aiProvider = AIProviderFactory.createProvider({
+        type: provider as AIProviderType,
+        apiKey,
+        model // Use the model from settings
+      });
+      
+      // Determine the prefill based on provider capabilities
+      const prefill = aiProvider.supportsPrefilling() ? '{' : undefined;
+      
+      console.log(`Using ${provider} provider with prefilling: ${!!prefill}`);
+      
+      // Use structured generation with prefilling
+      const response = await aiProvider.generateStructuredContent<ContentCategory>({
+        prompt: categoryPrompt,
+        prefill,
+        expectsJson: true,
+        options: {
+          wordCount: 500, // Short response
+          tone: 'professional',
+          format: 'how-to'
+        },
+        maxRetries: 2
+      });
 
-          if (!openaiResponse.ok) {
-            throw new Error('OpenAI API request failed')
-          }
+      console.log('Structured generation response:', {
+        parsed: response.parsed,
+        raw: response.raw.substring(0, 200) + '...',
+        data: response.data
+      });
 
-          const openaiData = await openaiResponse.json()
-          const openaiContent = openaiData.choices[0].message.content
-          categoryAnalysis = JSON.parse(openaiContent)
-          break
-
-        case 'gemini':
-          const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: categoryPrompt }] }],
-                generationConfig: {
-                  temperature: 0.3,
-                  maxOutputTokens: 200
-                }
-              })
-            }
-          )
-
-          if (!geminiResponse.ok) {
-            throw new Error('Gemini API request failed')
-          }
-
-          const geminiData = await geminiResponse.json()
-          const geminiContent = geminiData.candidates[0].content.parts[0].text
-          categoryAnalysis = JSON.parse(geminiContent)
-          break
-
-        case 'anthropic':
-          const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-              model: 'claude-3-haiku-20240307',
-              max_tokens: 200,
-              temperature: 0.3,
-              messages: [{ role: 'user', content: categoryPrompt }]
-            })
-          })
-
-          if (!claudeResponse.ok) {
-            throw new Error('Claude API request failed')
-          }
-
-          const claudeData = await claudeResponse.json()
-          const claudeContent = claudeData.content[0].text
-          categoryAnalysis = JSON.parse(claudeContent)
-          break
-
-        default:
-          // Fallback to basic keyword matching
-          const lowerInput = input.toLowerCase()
-          let primary: CategoryType = 'TECHNOLOGY'
-          let confidence = 0.6
-
-          if (lowerInput.includes('ai') || lowerInput.includes('programming') || lowerInput.includes('tech')) {
-            primary = 'TECHNOLOGY'
-          } else if (lowerInput.includes('business') || lowerInput.includes('startup')) {
-            primary = 'BUSINESS'
-          } else if (lowerInput.includes('health') || lowerInput.includes('lifestyle')) {
-            primary = 'LIFESTYLE'
-          } else if (lowerInput.includes('development') || lowerInput.includes('productivity')) {
-            primary = 'PERSONAL_DEVELOPMENT'
-          } else if (lowerInput.includes('fiction') || lowerInput.includes('writing') || lowerInput.includes('story') || lowerInput.includes('poetry') || lowerInput.includes('creative')) {
-            primary = 'CREATIVE_WRITING'
-          } else if (lowerInput.includes('politics') || lowerInput.includes('climate') || lowerInput.includes('current') || lowerInput.includes('affairs')) {
-            primary = 'CURRENT_AFFAIRS'
-          } else if (lowerInput.includes('education') || lowerInput.includes('learning') || lowerInput.includes('teaching') || lowerInput.includes('study') || lowerInput.includes('academic')) {
-            primary = 'EDUCATION_LEARNING'
-          } else if (lowerInput.includes('movie') || lowerInput.includes('music') || lowerInput.includes('game') || lowerInput.includes('entertainment') || lowerInput.includes('media') || lowerInput.includes('tv') || lowerInput.includes('celebrity')) {
-            primary = 'ENTERTAINMENT_MEDIA'
-          } else if (lowerInput.includes('science') || lowerInput.includes('research') || lowerInput.includes('study') || lowerInput.includes('scientific') || lowerInput.includes('academic')) {
-            primary = 'SCIENCE_RESEARCH'
-          }
-
-          categoryAnalysis = {
-            primary,
-            confidence,
-            reasoning: 'Categorized using keyword analysis'
-          }
+      if (!response.parsed) {
+        console.warn('Failed to parse structured response, attempting fallback');
+        throw new Error('Failed to parse category analysis response');
       }
+
+      categoryAnalysis = response.data;
 
       // Validate the response format
       if (!categoryAnalysis.primary || !categoryAnalysis.confidence) {
-        throw new Error('Invalid category analysis format')
+        throw new Error('Invalid category analysis format');
       }
 
       // Ensure confidence is within valid range
-      categoryAnalysis.confidence = Math.max(0, Math.min(1, categoryAnalysis.confidence))
+      categoryAnalysis.confidence = Math.max(0, Math.min(1, categoryAnalysis.confidence));
 
-      return NextResponse.json(categoryAnalysis)
+      return NextResponse.json(categoryAnalysis);
 
-    } catch (parseError) {
-      console.error('Category analysis error:', parseError)
+    } catch (structuredError) {
+      console.warn('Structured generation failed, attempting legacy fallback:', structuredError);
       
-      // Fallback categorization
-      return NextResponse.json({
-        primary: 'TECHNOLOGY' as CategoryType,
-        confidence: 0.5,
-        reasoning: 'Fallback categorization due to analysis error'
-      })
+      // Fallback to basic keyword matching
+      const lowerInput = input.toLowerCase()
+      let primary: CategoryType = 'TECHNOLOGY'
+      let confidence = 0.6
+
+      if (lowerInput.includes('ai') || lowerInput.includes('programming') || lowerInput.includes('tech')) {
+        primary = 'TECHNOLOGY'
+      } else if (lowerInput.includes('business') || lowerInput.includes('startup')) {
+        primary = 'BUSINESS'
+      } else if (lowerInput.includes('health') || lowerInput.includes('lifestyle')) {
+        primary = 'LIFESTYLE'
+      } else if (lowerInput.includes('development') || lowerInput.includes('productivity')) {
+        primary = 'PERSONAL_DEVELOPMENT'
+      } else if (lowerInput.includes('fiction') || lowerInput.includes('writing') || lowerInput.includes('story') || lowerInput.includes('poetry') || lowerInput.includes('creative')) {
+        primary = 'CREATIVE_WRITING'
+      } else if (lowerInput.includes('politics') || lowerInput.includes('climate') || lowerInput.includes('current') || lowerInput.includes('affairs')) {
+        primary = 'CURRENT_AFFAIRS'
+      } else if (lowerInput.includes('education') || lowerInput.includes('learning') || lowerInput.includes('teaching') || lowerInput.includes('study') || lowerInput.includes('academic')) {
+        primary = 'EDUCATION_LEARNING'
+      } else if (lowerInput.includes('movie') || lowerInput.includes('music') || lowerInput.includes('game') || lowerInput.includes('entertainment') || lowerInput.includes('media') || lowerInput.includes('tv') || lowerInput.includes('celebrity')) {
+        primary = 'ENTERTAINMENT_MEDIA'
+      } else if (lowerInput.includes('science') || lowerInput.includes('research') || lowerInput.includes('study') || lowerInput.includes('scientific') || lowerInput.includes('academic')) {
+        primary = 'SCIENCE_RESEARCH'
+      }
+
+      categoryAnalysis = {
+        primary,
+        confidence,
+        reasoning: 'Fallback categorization using keyword analysis due to structured generation failure'
+      }
+      
+      return NextResponse.json(categoryAnalysis);
     }
 
   } catch (error) {
-    console.error('Category analysis request error:', error)
+    console.error('Category analysis request error:', error);
     return NextResponse.json(
       { error: 'Failed to analyze category' },
       { status: 500 }
-    )
+    );
   }
 }

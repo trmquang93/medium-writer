@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, ArrowLeft, HelpCircle, Check, AlertCircle } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
@@ -30,34 +30,7 @@ export function QuestionStep() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
 
-  // Load questions when component mounts or category changes
-  useEffect(() => {
-    if (selectedCategory && questions.length === 0) {
-      loadCategoryQuestions()
-    }
-  }, [selectedCategory, questions.length])
-
-  // Pre-fill form with existing responses
-  useEffect(() => {
-    if (responses.length > 0) {
-      const existingData: FormData = {}
-      responses.forEach(response => {
-        const question = questions.find(q => q.id === response.questionId)
-        if (question?.type === 'multiselect') {
-          try {
-            existingData[response.questionId] = JSON.parse(response.answer)
-          } catch {
-            existingData[response.questionId] = [response.answer]
-          }
-        } else {
-          existingData[response.questionId] = response.answer
-        }
-      })
-      setFormData(existingData)
-    }
-  }, [responses, questions])
-
-  const loadCategoryQuestions = async () => {
+  const loadCategoryQuestions = useCallback(async () => {
     if (!selectedCategory) return
 
     setIsLoading(true)
@@ -83,7 +56,34 @@ export function QuestionStep() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [selectedCategory, setQuestions, setError])
+
+  // Load questions when component mounts or category changes
+  useEffect(() => {
+    if (selectedCategory && questions.length === 0) {
+      loadCategoryQuestions()
+    }
+  }, [selectedCategory, questions.length, loadCategoryQuestions])
+
+  // Pre-fill form with existing responses
+  useEffect(() => {
+    if (responses.length > 0) {
+      const existingData: FormData = {}
+      responses.forEach(response => {
+        const question = questions.find(q => q.id === response.questionId)
+        if (question?.type === 'multiselect') {
+          try {
+            existingData[response.questionId] = JSON.parse(response.answer)
+          } catch {
+            existingData[response.questionId] = [response.answer]
+          }
+        } else {
+          existingData[response.questionId] = response.answer
+        }
+      })
+      setFormData(existingData)
+    }
+  }, [responses, questions])
 
   const handleInputChange = (questionId: string, value: string | string[]) => {
     setFormData(prev => ({

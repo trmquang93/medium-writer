@@ -54,12 +54,15 @@ export function GenerationStep() {
   const { generateArticle, isConfigured } = useAIProvider()
   const { selectedProvider } = useSettingsStore()
   
-  const [currentStage, setCurrentStage] = useState<GenerationProgress>(generationStages[0])
+  const [currentStage, setCurrentStage] = useState<GenerationProgress>(() => 
+    generatedArticle ? generationStages[generationStages.length - 1] : generationStages[0]
+  )
   const [isGenerating, setIsGenerating] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [showApiKeyManager, setShowApiKeyManager] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
   const intervalRef = useRef<NodeJS.Timeout>()
 
   // Timer effect for elapsed time
@@ -79,25 +82,69 @@ export function GenerationStep() {
     }
   }, [isGenerating, startTime])
 
-  // Auto-start generation when component mounts (if no article exists and API key is configured)
+  // Effect to wait for initial configuration check before taking any action
   useEffect(() => {
-    let mounted = true
+    // If we already have an article, skip the delay
+    if (generatedArticle) {
+      setIsInitializing(false)
+      return
+    }
     
-    if (!generatedArticle && !isGenerating && !error && mounted && isConfigured) {
+    // Add a small delay to allow async configuration check to complete
+    const timer = setTimeout(() => {
+      setIsInitializing(false)
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [generatedArticle])
+
+  // Effect to set completed state when navigating back with existing article
+  useEffect(() => {
+    if (generatedArticle && currentStage.stage !== 'completed') {
+      setCurrentStage({
+        stage: 'completed',
+        progress: 100,
+        message: 'Article generation completed!'
+      })
+    }
+  }, [generatedArticle, currentStage.stage])
+
+  // Separate effect for clearing error when article exists
+  useEffect(() => {
+    if (generatedArticle && error) {
+      setError(null)
+    }
+  }, [generatedArticle, error])
+
+  // Auto-start generation when component is ready and configured
+  const hasAttemptedGeneration = useRef(false)
+  
+  useEffect(() => {
+    // Don't act until we've finished initializing to avoid race conditions
+    if (isInitializing) return
+    
+    // Only attempt generation once per component mount
+    if (generatedArticle || hasAttemptedGeneration.current) return
+
+    if (!isGenerating && !error && isConfigured) {
+      hasAttemptedGeneration.current = true
       handleGenerate()
     } else if (!isConfigured && !error) {
       setError('No API key configured. Please set up your AI provider first.')
       setCurrentStage({
         stage: 'error',
         progress: 0,
-        message: 'API key required. Please configure your AI provider.'
+        message: 'API key required. Please configure your API provider.'
       })
     }
-
-    return () => {
-      mounted = false
+  }, [isConfigured, isInitializing, generatedArticle, isGenerating, error])
+  
+  // Reset attempt flag when user manually retries
+  useEffect(() => {
+    if (!generatedArticle && !isGenerating && !error) {
+      hasAttemptedGeneration.current = false
     }
-  }, [isConfigured])
+  }, [generatedArticle, isGenerating, error])
 
   const simulateProgressStages = async (abortSignal?: AbortSignal): Promise<void> => {
     for (const stage of generationStages.slice(0, -1)) {
@@ -162,7 +209,7 @@ export function GenerationStep() {
       console.log('Starting progress simulation and API call...')
 
       // Start progress simulation (don't wait for it)
-      const progressPromise = simulateProgressStages(abortController.signal).catch((err) => {
+      simulateProgressStages(abortController.signal).catch((err) => {
         console.log('Progress simulation ended:', err.message)
       })
 
@@ -301,7 +348,7 @@ export function GenerationStep() {
 
       {/* Generation Status */}
       <AnimatePresence mode="wait">
-        {isGenerating || generatedArticle || error ? (
+        {isGenerating || generatedArticle || error || isInitializing ? (
           <motion.div
             key="generation-status"
             initial={{ opacity: 0, y: 30 }}
@@ -449,6 +496,16 @@ export function GenerationStep() {
                 </div>
               </div>
             )}
+
+            {/* Initialization State */}
+            {isInitializing && (
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-center space-x-2 text-sm text-blue-800">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Checking API key configuration...</span>
+                </div>
+              </div>
+            )}
           </motion.div>
         ) : (
           // Initial loading state
@@ -504,7 +561,7 @@ export function GenerationStep() {
             </Button>
           )}
           
-          {!generatedArticle && !isGenerating && currentStage.stage !== 'error' && isConfigured && (
+          {!generatedArticle && !isGenerating && !isInitializing && currentStage.stage !== 'error' && isConfigured && (
             <Button 
               onClick={() => handleGenerate()}
               size="lg"
@@ -515,7 +572,7 @@ export function GenerationStep() {
             </Button>
           )}
           
-          {!generatedArticle && !isGenerating && currentStage.stage !== 'error' && !isConfigured && (
+          {!generatedArticle && !isGenerating && !isInitializing && currentStage.stage !== 'error' && !isConfigured && (
             <Button 
               onClick={() => setShowApiKeyManager(true)}
               size="lg"
@@ -523,6 +580,17 @@ export function GenerationStep() {
             >
               <Key className="w-4 h-4 mr-2" />
               Configure API Key
+            </Button>
+          )}
+
+          {isInitializing && (
+            <Button 
+              disabled
+              size="lg"
+              className="min-w-[120px]"
+            >
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Checking...
             </Button>
           )}
         </div>

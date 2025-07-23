@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, ArrowLeft, Target, Brain, RefreshCw } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
@@ -89,13 +89,7 @@ export function CategoryStep() {
   const [suggestedCategory, setSuggestedCategory] = useState<ContentCategory | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
-  useEffect(() => {
-    if (userInput && !suggestedCategory) {
-      handleAnalyzeCategory()
-    }
-  }, [userInput])
-
-  const handleAnalyzeCategory = async () => {
+  const handleAnalyzeCategory = useCallback(async () => {
     setIsAnalyzing(true)
     try {
       const category = await analyzeCategory(userInput)
@@ -111,7 +105,13 @@ export function CategoryStep() {
     } finally {
       setIsAnalyzing(false)
     }
-  }
+  }, [userInput, analyzeCategory, setSelectedCategory, setError])
+
+  useEffect(() => {
+    if (userInput && !suggestedCategory) {
+      handleAnalyzeCategory()
+    }
+  }, [userInput, suggestedCategory, handleAnalyzeCategory])
 
   const handleCategorySelect = (categoryId: CategoryType) => {
     const category: ContentCategory = {
