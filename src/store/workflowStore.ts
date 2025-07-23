@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { ContentCategory, Question, Response, Article } from '@/types'
+import { sessionManager } from '@/lib/session-manager'
 
 export type WorkflowStep = 'input' | 'category' | 'questions' | 'generation' | 'edit'
 
@@ -56,7 +57,14 @@ export const useWorkflowStore = create<WorkflowState>()(
       (set, get) => ({
         ...initialState,
         
-        setCurrentStep: (step) => set({ currentStep: step }),
+        setCurrentStep: (step) => {
+          set({ currentStep: step })
+          // Save session snapshot when workflow step changes
+          sessionManager.saveSessionSnapshot({
+            workflowStep: step,
+            hasArticle: !!get().generatedArticle
+          })
+        },
         
         setUserInput: (input) => set({ userInput: input }),
         
@@ -74,7 +82,14 @@ export const useWorkflowStore = create<WorkflowState>()(
           set({ responses })
         },
         
-        setGeneratedArticle: (article) => set({ generatedArticle: article }),
+        setGeneratedArticle: (article) => {
+          set({ generatedArticle: article })
+          // Save session snapshot when article is generated
+          sessionManager.saveSessionSnapshot({
+            workflowStep: get().currentStep,
+            hasArticle: !!article
+          })
+        },
         
         updateGeneratedArticle: (updates) => {
           const current = get().generatedArticle

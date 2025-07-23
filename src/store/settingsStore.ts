@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { AIProviderType } from '@/types'
+import { sessionManager } from '@/lib/session-manager'
 
 interface SettingsState {
   // AI Provider settings
@@ -31,6 +32,10 @@ interface SettingsState {
   setAnimationsEnabled: (enabled: boolean) => void
   setSoundEnabled: (enabled: boolean) => void
   resetSettings: () => void
+  
+  // Session restoration
+  restoreSession: () => void
+  hasConfiguredProviders: () => boolean
 }
 
 const initialState = {
@@ -51,7 +56,11 @@ export const useSettingsStore = create<SettingsState>()(
       (set, get) => ({
         ...initialState,
         
-        setSelectedProvider: (provider) => set({ selectedProvider: provider }),
+        setSelectedProvider: (provider) => {
+          set({ selectedProvider: provider })
+          // Save session snapshot when provider changes
+          sessionManager.saveSessionSnapshot({ selectedProvider: provider })
+        },
         
         setApiKey: (provider, key) => {
           const apiKeys = { ...get().apiKeys, [provider]: key }
@@ -86,6 +95,31 @@ export const useSettingsStore = create<SettingsState>()(
         setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
         
         resetSettings: () => set(initialState),
+        
+        restoreSession: () => {
+          // This will restore API keys from sessionStorage via ApiKeyManager
+          // and sync them with the store state
+          const { ApiKeyManager } = require('@/lib/api-key-manager')
+          const manager = ApiKeyManager.getInstance()
+          const configuredProviders = manager.getConfiguredProviders()
+          
+          // Update apiKeys state with available session keys
+          const apiKeys = { ...get().apiKeys }
+          configuredProviders.forEach(async (provider: AIProviderType) => {
+            const key = await manager.getApiKey(provider)
+            if (key) {
+              apiKeys[provider] = key
+            }
+          })
+          
+          set({ apiKeys })
+        },
+        
+        hasConfiguredProviders: () => {
+          const { ApiKeyManager } = require('@/lib/api-key-manager')
+          const manager = ApiKeyManager.getInstance()
+          return manager.getConfiguredProviders().length > 0
+        },
       }),
       {
         name: 'settings-state',
@@ -98,6 +132,8 @@ export const useSettingsStore = create<SettingsState>()(
           theme: state.theme,
           animationsEnabled: state.animationsEnabled,
           soundEnabled: state.soundEnabled,
+          // Note: API keys are intentionally NOT persisted for security
+          // They are stored only in sessionStorage via the API key manager
         }),
       }
     ),

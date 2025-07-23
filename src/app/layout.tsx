@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { SessionStatus } from '@/components/ui/SessionStatus';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
           {children}
+          <SessionStatus />
         </main>
       </body>
     </html>

@@ -37,10 +37,27 @@ export const useAIProvider = (): UseAIProviderReturn => {
   const [isValidating, setIsValidating] = useState(false)
   const [isConfigured, setIsConfigured] = useState(false)
 
+  // Helper function to get API key from either store or session manager
+  const getApiKey = useCallback(async (provider: AIProviderType): Promise<string | null> => {
+    // First check Zustand store
+    const storeKey = apiKeys[provider]
+    if (storeKey) return storeKey
+    
+    // Then check ApiKeyManager session storage
+    return await ApiKeyManager.getInstance().getApiKey(provider)
+  }, [apiKeys])
+
   // Check if the current provider is configured
   useEffect(() => {
-    const keyExists = !!apiKeys[selectedProvider]
-    setIsConfigured(keyExists)
+    const checkConfiguration = async () => {
+      // Check both Zustand store and ApiKeyManager for API keys
+      const storeKey = !!apiKeys[selectedProvider]
+      const sessionKey = await ApiKeyManager.getInstance().getApiKey(selectedProvider)
+      const keyExists = storeKey || !!sessionKey
+      setIsConfigured(keyExists)
+    }
+    
+    checkConfiguration()
   }, [selectedProvider, apiKeys])
 
   const validateApiKey = useCallback(async (provider: AIProviderType, key: string): Promise<boolean> => {
@@ -63,7 +80,7 @@ export const useAIProvider = (): UseAIProviderReturn => {
   }, [])
 
   const analyzeCategory = useCallback(async (input: string): Promise<ContentCategory> => {
-    const apiKey = apiKeys[selectedProvider]
+    const apiKey = await getApiKey(selectedProvider)
     if (!apiKey) {
       throw new Error('No API key configured for selected provider')
     }
@@ -86,13 +103,13 @@ export const useAIProvider = (): UseAIProviderReturn => {
     }
 
     return response.json()
-  }, [selectedProvider, apiKeys])
+  }, [selectedProvider, getApiKey])
 
   const generateQuestions = useCallback(async (
     input: string, 
     category: ContentCategory
   ): Promise<Question[]> => {
-    const apiKey = apiKeys[selectedProvider]
+    const apiKey = await getApiKey(selectedProvider)
     if (!apiKey) {
       throw new Error('No API key configured for selected provider')
     }
@@ -116,14 +133,14 @@ export const useAIProvider = (): UseAIProviderReturn => {
     }
 
     return response.json()
-  }, [selectedProvider, apiKeys])
+  }, [selectedProvider, getApiKey])
 
   const generateArticle = useCallback(async (
     input: string,
     category: ContentCategory,
     responses: { question: string; answer: string }[]
   ): Promise<Article> => {
-    const apiKey = apiKeys[selectedProvider]
+    const apiKey = await getApiKey(selectedProvider)
     if (!apiKey) {
       throw new Error('No API key configured for selected provider')
     }
@@ -148,13 +165,13 @@ export const useAIProvider = (): UseAIProviderReturn => {
     }
 
     return response.json()
-  }, [selectedProvider, apiKeys])
+  }, [selectedProvider, getApiKey])
 
   const optimizeContent = useCallback(async (
     content: string,
     options: OptimizationOptions
   ): Promise<string> => {
-    const apiKey = apiKeys[selectedProvider]
+    const apiKey = await getApiKey(selectedProvider)
     if (!apiKey) {
       throw new Error('No API key configured for selected provider')
     }
@@ -179,7 +196,7 @@ export const useAIProvider = (): UseAIProviderReturn => {
 
     const result = await response.json()
     return result.optimizedContent
-  }, [selectedProvider, apiKeys])
+  }, [selectedProvider, getApiKey])
 
   const setApiKey = useCallback(async (provider: AIProviderType, key: string) => {
     // Validate the key before storing
@@ -187,17 +204,29 @@ export const useAIProvider = (): UseAIProviderReturn => {
     if (isValid) {
       setStoreApiKey(provider, key)
       // Also store in the secure session manager
-      ApiKeyManager.getInstance().setApiKey(provider, key)
+      await ApiKeyManager.getInstance().setApiKey(provider, key)
+      
+      // Force re-check configuration status
+      const sessionKey = await ApiKeyManager.getInstance().getApiKey(provider)
+      const keyExists = !!key || !!sessionKey
+      setIsConfigured(keyExists)
     } else {
       throw new Error('Invalid API key')
     }
   }, [validateApiKey, setStoreApiKey])
 
-  const removeApiKey = useCallback((provider: AIProviderType) => {
+  const removeApiKey = useCallback(async (provider: AIProviderType) => {
     removeStoreApiKey(provider)
     // Also remove from session manager
     ApiKeyManager.getInstance().removeApiKey(provider)
-  }, [removeStoreApiKey])
+    
+    // Force re-check configuration status for current provider
+    if (provider === selectedProvider) {
+      const sessionKey = await ApiKeyManager.getInstance().getApiKey(provider)
+      const keyExists = !!sessionKey
+      setIsConfigured(keyExists)
+    }
+  }, [removeStoreApiKey, selectedProvider])
 
   return {
     isConfigured,
