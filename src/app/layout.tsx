@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { SessionStatus } from '@/components/ui/SessionStatus';
+import { Navigation } from '@/components/ui/Navigation';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -31,10 +32,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-          {children}
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+          <Navigation />
+          <main className="relative">
+            {children}
+          </main>
           <SessionStatus />
-        </main>
+        </div>
       </body>
     </html>
   );
