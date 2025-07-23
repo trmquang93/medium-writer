@@ -3,7 +3,7 @@ import { AIProviderType, ContentCategory, Article, Response, GenerationOptions }
 import { promptTemplates } from '@/lib/prompt-templates'
 
 // Helper function to create fetch requests with timeout
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = 50000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = 50000): Promise<globalThis.Response> {
   const abortController = new AbortController()
   const timeoutId = setTimeout(() => abortController.abort(), timeoutMs)
 
