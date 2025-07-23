@@ -80,6 +80,17 @@ export interface UsageMetrics {
   errorCount: number
 }
 
+export interface ModelInfo {
+  id: string
+  name: string
+  description: string
+  maxTokens: number
+  inputCostPer1000?: number
+  outputCostPer1000?: number
+  capabilities: string[]
+  isDefault?: boolean
+}
+
 export interface ProviderConfig {
   type: AIProviderType
   name: string
@@ -92,6 +103,7 @@ export interface ProviderConfig {
   maxTokens: number
   supportsStreaming: boolean
   temperature?: number
+  availableModels: ModelInfo[]
 }
 
 // Error Types
@@ -141,7 +153,7 @@ export interface GenerationOptions {
 }
 
 // Export Formats
-export type ExportFormat = 'markdown' | 'html' | 'text' | 'json'
+export type ExportFormat = 'markdown' | 'html' | 'text' | 'json' | 'clipboard'
 
 export interface ExportOptions {
   format: ExportFormat

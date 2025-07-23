@@ -9,6 +9,7 @@ import { useAIProvider } from '@/hooks/useAIProvider'
 import { Button } from './Button'
 import { Input } from './Input'
 import { cn } from '@/lib/utils'
+import { ModelSelector } from './ModelSelector'
 
 const aiProviders = [
   { id: 'openai' as AIProviderType, name: 'OpenAI', color: 'bg-green-500' },
@@ -197,9 +198,34 @@ export function ApiKeyManager({ isOpen, onClose }: ApiKeyManagerProps) {
 
                           {/* Key Display */}
                           {hasKey && !isEditing && (
-                            <div className="mt-2">
+                            <div className="mt-2 space-y-3">
                               <div className="bg-gray-50 rounded px-3 py-2 font-mono text-sm text-gray-700">
                                 {showKeys[provider.id] ? apiKeys[provider.id] : maskApiKey(apiKeys[provider.id])}
+                              </div>
+                              
+                              {/* Model Selection */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Selected Model
+                                </label>
+                                <ModelSelector provider={provider.id} />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Model Selection Preview (for testing/development) */}
+                          {!hasKey && !isEditing && (
+                            <div className="mt-2 space-y-3">
+                              <div className="bg-gray-100 rounded px-3 py-2 text-sm text-gray-500 italic">
+                                Add a valid API key to configure models
+                              </div>
+                              
+                              {/* Model Selection Preview */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Available Models (Preview)
+                                </label>
+                                <ModelSelector provider={provider.id} disabled className="opacity-60" />
                               </div>
                             </div>
                           )}

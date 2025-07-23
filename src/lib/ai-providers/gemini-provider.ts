@@ -1,5 +1,5 @@
 import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
-import { UsageMetrics, AIProviderType } from '@/types';
+import { UsageMetrics, AIProviderType, ModelInfo } from '@/types';
 
 interface GeminiContent {
   parts: Array<{ text: string }>;
@@ -57,6 +57,39 @@ export class GeminiProvider extends BaseAIProvider {
 
   getDefaultBaseURL(): string {
     return 'https://generativelanguage.googleapis.com/v1beta';
+  }
+
+  getAvailableModels(): ModelInfo[] {
+    return [
+      {
+        id: 'gemini-pro',
+        name: 'Gemini Pro',
+        description: 'Google\'s flagship generative AI model',
+        maxTokens: 32768,
+        inputCostPer1000: 0.0005,
+        outputCostPer1000: 0.0015,
+        capabilities: ['text-generation', 'analysis', 'reasoning'],
+        isDefault: true,
+      },
+      {
+        id: 'gemini-1.5-pro',
+        name: 'Gemini 1.5 Pro',
+        description: 'Latest Gemini model with enhanced capabilities',
+        maxTokens: 128000,
+        inputCostPer1000: 0.0035,
+        outputCostPer1000: 0.0105,
+        capabilities: ['text-generation', 'analysis', 'reasoning', 'long-context'],
+      },
+      {
+        id: 'gemini-1.5-flash',
+        name: 'Gemini 1.5 Flash',
+        description: 'Faster, lighter version of Gemini 1.5',
+        maxTokens: 32768,
+        inputCostPer1000: 0.00035,
+        outputCostPer1000: 0.00105,
+        capabilities: ['text-generation', 'conversation', 'fast-response'],
+      },
+    ];
   }
 
   async validateApiKey(): Promise<boolean> {

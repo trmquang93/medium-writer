@@ -61,7 +61,7 @@ const convertToHtml = (content: string): string => {
     .replace(/^(?!<[hl]|<li)/gim, '<p>')
     .replace(/$/gim, '</p>')
     .replace(/<p><\/p>/gim, '')
-    .replace(/(<li>.*<\/li>)/gims, '<ul>$1</ul>')
+    .replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>')
 }
 
 const convertToPlainText = (content: string): string => {
@@ -173,6 +173,7 @@ export function EditStep() {
           exportContent = convertToMarkdown(content)
           filename = `${title}.md`
           mimeType = 'text/markdown'
+          downloadFile(exportContent, filename, mimeType)
           break
         case 'html':
           exportContent = `<!DOCTYPE html>
@@ -193,21 +194,20 @@ ${convertToHtml(content)}
 </html>`
           filename = `${title}.html`
           mimeType = 'text/html'
+          downloadFile(exportContent, filename, mimeType)
           break
         case 'text':
           exportContent = convertToPlainText(content)
           filename = `${title}.txt`
           mimeType = 'text/plain'
+          downloadFile(exportContent, filename, mimeType)
+          break
+        case 'clipboard':
+          const success = await copyToClipboard(content)
+          if (!success) throw new Error('Failed to copy to clipboard')
           break
         default:
           throw new Error('Unsupported format')
-      }
-
-      if (format === 'clipboard') {
-        const success = await copyToClipboard(content)
-        if (!success) throw new Error('Failed to copy to clipboard')
-      } else {
-        downloadFile(exportContent, filename, mimeType)
       }
 
       setExportState({ format, isExporting: false, success: true })

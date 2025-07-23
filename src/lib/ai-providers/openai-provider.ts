@@ -1,5 +1,5 @@
 import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
-import { UsageMetrics, AIProviderType } from '@/types';
+import { UsageMetrics, AIProviderType, ModelInfo } from '@/types';
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -61,6 +61,48 @@ export class OpenAIProvider extends BaseAIProvider {
 
   getDefaultBaseURL(): string {
     return 'https://api.openai.com/v1';
+  }
+
+  getAvailableModels(): ModelInfo[] {
+    return [
+      {
+        id: 'gpt-4-turbo-preview',
+        name: 'GPT-4 Turbo Preview',
+        description: 'Most capable GPT-4 model with 128k context window',
+        maxTokens: 128000,
+        inputCostPer1000: 0.01,
+        outputCostPer1000: 0.03,
+        capabilities: ['text-generation', 'analysis', 'reasoning'],
+        isDefault: true,
+      },
+      {
+        id: 'gpt-4',
+        name: 'GPT-4',
+        description: 'High-quality reasoning model with 8k context',
+        maxTokens: 8192,
+        inputCostPer1000: 0.03,
+        outputCostPer1000: 0.06,
+        capabilities: ['text-generation', 'analysis', 'reasoning'],
+      },
+      {
+        id: 'gpt-3.5-turbo',
+        name: 'GPT-3.5 Turbo',
+        description: 'Fast and efficient model with 16k context',
+        maxTokens: 16384,
+        inputCostPer1000: 0.0005,
+        outputCostPer1000: 0.0015,
+        capabilities: ['text-generation', 'conversation'],
+      },
+      {
+        id: 'gpt-3.5-turbo-16k',
+        name: 'GPT-3.5 Turbo 16K',
+        description: 'Extended context version of GPT-3.5',
+        maxTokens: 16384,
+        inputCostPer1000: 0.003,
+        outputCostPer1000: 0.004,
+        capabilities: ['text-generation', 'conversation'],
+      },
+    ];
   }
 
   protected createHeaders(): Record<string, string> {

@@ -52,7 +52,7 @@ function generateTags(content: string, category: ContentCategory): string[] {
 
 export async function POST(request: NextRequest) {
   try {
-    const { input, category, responses, provider, apiKey, options } = await request.json()
+    const { input, category, responses, provider, model, apiKey, options } = await request.json()
 
     // Validate required parameters
     if (!input || !category || !provider || !apiKey) {
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: 'gpt-3.5-turbo',
+              model: model || 'gpt-4-turbo-preview',
               messages: [{ role: 'user', content: articlePrompt }],
               temperature: generationOptions.temperature,
               max_tokens: generationOptions.maxTokens
@@ -135,8 +135,9 @@ export async function POST(request: NextRequest) {
           break
 
         case 'gemini':
+          const geminiModel = model || 'gemini-pro'
           const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -163,12 +164,12 @@ export async function POST(request: NextRequest) {
           const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${apiKey}`,
+              'x-api-key': apiKey,
               'Content-Type': 'application/json',
               'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-              model: 'claude-3-haiku-20240307',
+              model: model || 'claude-3-sonnet-20240229',
               max_tokens: generationOptions.maxTokens,
               temperature: generationOptions.temperature,
               messages: [{ role: 'user', content: articlePrompt }]
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
               'X-Title': 'Medium AI Writer'
             },
             body: JSON.stringify({
-              model: 'openai/gpt-3.5-turbo',
+              model: model || 'openai/gpt-4-turbo-preview',
               messages: [{ role: 'user', content: articlePrompt }],
               temperature: generationOptions.temperature,
               max_tokens: generationOptions.maxTokens

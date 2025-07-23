@@ -1,4 +1,4 @@
-import { AIProviderType, GenerationOptions, UsageMetrics, AppError } from '@/types';
+import { AIProviderType, GenerationOptions, UsageMetrics, AppError, ModelInfo } from '@/types';
 
 export interface GenerationRequest {
   prompt: string;
@@ -43,6 +43,7 @@ export abstract class BaseAIProvider {
 
   abstract getDefaultModel(): string;
   abstract getDefaultBaseURL(): string;
+  abstract getAvailableModels(): ModelInfo[];
   abstract validateApiKey(): Promise<boolean>;
 
   abstract generateContent(
@@ -54,6 +55,23 @@ export abstract class BaseAIProvider {
   ): AsyncIterableIterator<StreamChunk>;
 
   abstract getUsageMetrics(): Promise<UsageMetrics>;
+
+  // Model management methods
+  setModel(model: string): void {
+    if (this.isValidModel(model)) {
+      this.model = model;
+    } else {
+      throw new Error(`Invalid model: ${model}. Available models: ${this.getAvailableModels().map(m => m.id).join(', ')}`);
+    }
+  }
+
+  getCurrentModel(): string {
+    return this.model;
+  }
+
+  private isValidModel(model: string): boolean {
+    return this.getAvailableModels().some(m => m.id === model);
+  }
 
   // Common utility methods
   protected createHeaders(): Record<string, string> {
@@ -235,6 +253,7 @@ Ensure the article is engaging, informative, and ready for publication on Medium
       model: this.model,
       baseURL: this.baseURL,
       hasValidKey: Boolean(this.apiKey),
+      availableModels: this.getAvailableModels(),
     };
   }
 }

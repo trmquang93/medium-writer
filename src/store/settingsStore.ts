@@ -6,6 +6,7 @@ interface SettingsState {
   // AI Provider settings
   selectedProvider: AIProviderType
   apiKeys: Record<AIProviderType, string>
+  selectedModels: Record<AIProviderType, string>
   
   // User preferences
   autoAdvanceSteps: boolean
@@ -21,6 +22,8 @@ interface SettingsState {
   setSelectedProvider: (provider: AIProviderType) => void
   setApiKey: (provider: AIProviderType, key: string) => void
   removeApiKey: (provider: AIProviderType) => void
+  setSelectedModel: (provider: AIProviderType, model: string) => void
+  getSelectedModel: (provider: AIProviderType) => string | undefined
   setAutoAdvanceSteps: (enabled: boolean) => void
   setShowDetailedProgress: (enabled: boolean) => void
   setPreferredArticleLength: (length: 'short' | 'medium' | 'long') => void
@@ -33,6 +36,7 @@ interface SettingsState {
 const initialState = {
   selectedProvider: 'openai' as AIProviderType,
   apiKeys: {} as Record<AIProviderType, string>,
+  selectedModels: {} as Record<AIProviderType, string>,
   autoAdvanceSteps: true,
   showDetailedProgress: true,
   preferredArticleLength: 'medium' as const,
@@ -60,6 +64,15 @@ export const useSettingsStore = create<SettingsState>()(
           set({ apiKeys })
         },
         
+        setSelectedModel: (provider, model) => {
+          const selectedModels = { ...get().selectedModels, [provider]: model }
+          set({ selectedModels })
+        },
+        
+        getSelectedModel: (provider) => {
+          return get().selectedModels[provider]
+        },
+        
         setAutoAdvanceSteps: (enabled) => set({ autoAdvanceSteps: enabled }),
         
         setShowDetailedProgress: (enabled) => set({ showDetailedProgress: enabled }),
@@ -78,6 +91,7 @@ export const useSettingsStore = create<SettingsState>()(
         name: 'settings-state',
         partialize: (state) => ({
           selectedProvider: state.selectedProvider,
+          selectedModels: state.selectedModels,
           autoAdvanceSteps: state.autoAdvanceSteps,
           showDetailedProgress: state.showDetailedProgress,
           preferredArticleLength: state.preferredArticleLength,

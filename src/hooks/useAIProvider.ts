@@ -26,7 +26,14 @@ interface UseAIProviderReturn {
 }
 
 export const useAIProvider = (): UseAIProviderReturn => {
-  const { selectedProvider, apiKeys, setApiKey: setStoreApiKey, removeApiKey: removeStoreApiKey } = useSettingsStore()
+  const { 
+    selectedProvider, 
+    apiKeys, 
+    selectedModels,
+    getSelectedModel,
+    setApiKey: setStoreApiKey, 
+    removeApiKey: removeStoreApiKey 
+  } = useSettingsStore()
   const [isValidating, setIsValidating] = useState(false)
   const [isConfigured, setIsConfigured] = useState(false)
 
@@ -61,12 +68,15 @@ export const useAIProvider = (): UseAIProviderReturn => {
       throw new Error('No API key configured for selected provider')
     }
 
+    const selectedModel = getSelectedModel(selectedProvider)
+    
     const response = await fetch('/api/analyze-category', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         input, 
         provider: selectedProvider,
+        model: selectedModel,
         apiKey 
       })
     })
@@ -87,6 +97,8 @@ export const useAIProvider = (): UseAIProviderReturn => {
       throw new Error('No API key configured for selected provider')
     }
 
+    const selectedModel = getSelectedModel(selectedProvider)
+    
     const response = await fetch('/api/generate-questions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,6 +106,7 @@ export const useAIProvider = (): UseAIProviderReturn => {
         input, 
         category,
         provider: selectedProvider,
+        model: selectedModel,
         apiKey 
       })
     })
@@ -115,6 +128,8 @@ export const useAIProvider = (): UseAIProviderReturn => {
       throw new Error('No API key configured for selected provider')
     }
 
+    const selectedModel = getSelectedModel(selectedProvider)
+    
     const response = await fetch('/api/generate-article', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -123,6 +138,7 @@ export const useAIProvider = (): UseAIProviderReturn => {
         category,
         responses,
         provider: selectedProvider,
+        model: selectedModel,
         apiKey 
       })
     })
@@ -143,6 +159,8 @@ export const useAIProvider = (): UseAIProviderReturn => {
       throw new Error('No API key configured for selected provider')
     }
 
+    const selectedModel = getSelectedModel(selectedProvider)
+    
     const response = await fetch('/api/optimize-content', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -150,6 +168,7 @@ export const useAIProvider = (): UseAIProviderReturn => {
         content,
         options,
         provider: selectedProvider,
+        model: selectedModel,
         apiKey 
       })
     })

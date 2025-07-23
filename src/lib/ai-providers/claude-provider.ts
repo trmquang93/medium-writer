@@ -1,5 +1,5 @@
 import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
-import { UsageMetrics, AIProviderType } from '@/types';
+import { UsageMetrics, AIProviderType, ModelInfo } from '@/types';
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
@@ -58,6 +58,39 @@ export class ClaudeProvider extends BaseAIProvider {
 
   getDefaultBaseURL(): string {
     return 'https://api.anthropic.com/v1';
+  }
+
+  getAvailableModels(): ModelInfo[] {
+    return [
+      {
+        id: 'claude-3-sonnet-20240229',
+        name: 'Claude 3 Sonnet',
+        description: 'Balanced performance and speed for most tasks',
+        maxTokens: 200000,
+        inputCostPer1000: 0.003,
+        outputCostPer1000: 0.015,
+        capabilities: ['text-generation', 'analysis', 'reasoning', 'long-context'],
+        isDefault: true,
+      },
+      {
+        id: 'claude-3-opus-20240229',
+        name: 'Claude 3 Opus',
+        description: 'Most powerful model for complex reasoning tasks',
+        maxTokens: 200000,
+        inputCostPer1000: 0.015,
+        outputCostPer1000: 0.075,
+        capabilities: ['text-generation', 'analysis', 'complex-reasoning', 'long-context'],
+      },
+      {
+        id: 'claude-3-haiku-20240307',
+        name: 'Claude 3 Haiku',
+        description: 'Fastest model for quick tasks and responses',
+        maxTokens: 200000,
+        inputCostPer1000: 0.00025,
+        outputCostPer1000: 0.00125,
+        capabilities: ['text-generation', 'conversation', 'fast-response'],
+      },
+    ];
   }
 
   protected createHeaders(): Record<string, string> {
