@@ -1,4 +1,4 @@
-import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
+import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk, StructuredGenerationRequest } from './base-provider';
 import { UsageMetrics, AIProviderType, ModelInfo } from '@/types';
 
 interface ClaudeMessage {
@@ -121,21 +121,38 @@ export class ClaudeProvider extends BaseAIProvider {
     }
   }
 
+  // Override to support native prefilling
+  supportsPrefilling(): boolean {
+    return true;
+  }
+
+  // Enhanced generateContent with prefilling support
   async generateContent(request: GenerationRequest): Promise<GenerationResponse> {
     this.validateGenerationOptions(request.options);
 
     const startTime = Date.now();
 
     try {
+      const messages: ClaudeMessage[] = [
+        {
+          role: 'user',
+          content: request.prompt,
+        }
+      ];
+
+      // Add prefilling support for structured requests
+      const structuredRequest = request as any as StructuredGenerationRequest;
+      if (structuredRequest.prefill) {
+        messages.push({
+          role: 'assistant',
+          content: structuredRequest.prefill
+        });
+      }
+
       const claudeRequest: ClaudeRequest = {
         model: this.model,
         max_tokens: Math.min(4096, Math.ceil(request.options.wordCount * 1.5)),
-        messages: [
-          {
-            role: 'user',
-            content: request.prompt,
-          },
-        ],
+        messages,
         temperature: this.getTemperatureForTone(request.options.tone),
       };
 
@@ -157,10 +174,15 @@ export class ClaudeProvider extends BaseAIProvider {
       const claudeResponse = response as ClaudeResponse;
       const responseTime = Date.now() - startTime;
 
-      const content = claudeResponse.content
+      let content = claudeResponse.content
         .filter(block => block.type === 'text')
         .map(block => block.text)
         .join('');
+
+      // If we used prefilling, prepend the prefill to the response
+      if (structuredRequest.prefill) {
+        content = structuredRequest.prefill + content;
+      }
 
       // Update metrics
       const totalTokens = claudeResponse.usage.input_tokens + claudeResponse.usage.output_tokens;

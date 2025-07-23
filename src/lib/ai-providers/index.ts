@@ -1,6 +1,12 @@
 // Export all AI provider related classes and interfaces
 export { BaseAIProvider } from './base-provider';
-export type { GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
+export type { 
+  GenerationRequest, 
+  GenerationResponse, 
+  StreamChunk,
+  StructuredGenerationRequest,
+  StructuredGenerationResponse 
+} from './base-provider';
 
 export { OpenAIProvider } from './openai-provider';
 export { GeminiProvider } from './gemini-provider';

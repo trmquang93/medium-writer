@@ -52,7 +52,7 @@ export class AIProviderFactory {
         
       case 'gemini':
         return {
-          model: 'gemini-pro',
+          model: 'gemini-2.5-pro',
           maxTokens: 8192,
           temperature: 0.7,
         };

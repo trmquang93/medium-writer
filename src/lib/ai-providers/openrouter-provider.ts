@@ -1,4 +1,4 @@
-import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
+import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk, StructuredGenerationRequest } from './base-provider';
 import { UsageMetrics, AIProviderType, ModelInfo } from '@/types';
 
 interface OpenRouterMessage {
@@ -161,20 +161,40 @@ export class OpenRouterProvider extends BaseAIProvider {
     }
   }
 
+  // Enhanced generateContent with system message prefilling for OpenRouter
   async generateContent(request: GenerationRequest): Promise<GenerationResponse> {
     this.validateGenerationOptions(request.options);
 
     const startTime = Date.now();
 
     try {
+      const messages: OpenRouterMessage[] = [];
+      
+      // Add system message for structured requests (similar to OpenAI)
+      const structuredRequest = request as any as StructuredGenerationRequest;
+      if (structuredRequest.expectsJson) {
+        messages.push({
+          role: 'system',
+          content: 'You are a helpful assistant that responds with valid JSON only. Do not include any explanatory text, markdown formatting, or code blocks. Return only the raw JSON object.'
+        });
+      }
+      
+      messages.push({
+        role: 'user',
+        content: request.prompt,
+      });
+      
+      // Add assistant prefilling for OpenRouter
+      if (structuredRequest.prefill) {
+        messages.push({
+          role: 'assistant',
+          content: structuredRequest.prefill
+        });
+      }
+
       const openRouterRequest: OpenRouterRequest = {
         model: this.model,
-        messages: [
-          {
-            role: 'user',
-            content: request.prompt,
-          },
-        ],
+        messages,
         max_tokens: Math.min(4000, Math.ceil(request.options.wordCount * 1.5)),
         temperature: this.getTemperatureForTone(request.options.tone),
         transforms: ['middle-out'], // OpenRouter optimization
@@ -198,11 +218,18 @@ export class OpenRouterProvider extends BaseAIProvider {
       const openRouterResponse = response as OpenRouterResponse;
       const responseTime = Date.now() - startTime;
 
+      let content = openRouterResponse.choices[0].message.content;
+      
+      // If we used prefilling, prepend the prefill to the response
+      if (structuredRequest.prefill) {
+        content = structuredRequest.prefill + content;
+      }
+
       // Update metrics
       this.updateMetrics(openRouterResponse.usage?.total_tokens || 0, responseTime, false);
 
       return {
-        content: openRouterResponse.choices[0].message.content,
+        content,
         usage: openRouterResponse.usage ? {
           promptTokens: openRouterResponse.usage.prompt_tokens,
           completionTokens: openRouterResponse.usage.completion_tokens,

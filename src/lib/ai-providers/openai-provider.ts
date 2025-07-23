@@ -1,4 +1,4 @@
-import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk } from './base-provider';
+import { BaseAIProvider, GenerationRequest, GenerationResponse, StreamChunk, StructuredGenerationRequest } from './base-provider';
 import { UsageMetrics, AIProviderType, ModelInfo } from '@/types';
 
 interface OpenAIMessage {
@@ -125,20 +125,46 @@ export class OpenAIProvider extends BaseAIProvider {
     }
   }
 
+  // Override structured prompt building for OpenAI's system messages
+  protected buildStructuredPrompt<T>(request: StructuredGenerationRequest<T>): string {
+    // For OpenAI, we use system messages instead of prefilling
+    return request.prompt;
+  }
+
+  // Enhanced generateContent with system message prefilling
   async generateContent(request: GenerationRequest): Promise<GenerationResponse> {
     this.validateGenerationOptions(request.options);
 
     const startTime = Date.now();
 
     try {
+      const messages: OpenAIMessage[] = [];
+      
+      // Add system message for structured requests
+      const structuredRequest = request as any as StructuredGenerationRequest;
+      if (structuredRequest.expectsJson) {
+        messages.push({
+          role: 'system',
+          content: 'You are a helpful assistant that responds with valid JSON only. Do not include any explanatory text, markdown formatting, or code blocks. Return only the raw JSON object.'
+        });
+      }
+      
+      messages.push({
+        role: 'user',
+        content: request.prompt,
+      });
+      
+      // Add assistant prefilling for OpenAI
+      if (structuredRequest.prefill) {
+        messages.push({
+          role: 'assistant',
+          content: structuredRequest.prefill
+        });
+      }
+
       const openAIRequest: OpenAIRequest = {
         model: this.model,
-        messages: [
-          {
-            role: 'user',
-            content: request.prompt,
-          },
-        ],
+        messages,
         max_tokens: Math.min(4000, Math.ceil(request.options.wordCount * 1.5)),
         temperature: this.getTemperatureForTone(request.options.tone),
       };
@@ -161,11 +187,18 @@ export class OpenAIProvider extends BaseAIProvider {
       const openAIResponse = response as OpenAIResponse;
       const responseTime = Date.now() - startTime;
 
+      let content = openAIResponse.choices[0].message.content;
+      
+      // If we used prefilling, prepend the prefill to the response
+      if (structuredRequest.prefill) {
+        content = structuredRequest.prefill + content;
+      }
+
       // Update metrics
       this.updateMetrics(openAIResponse.usage.total_tokens, responseTime, false);
 
       return {
-        content: openAIResponse.choices[0].message.content,
+        content,
         usage: {
           promptTokens: openAIResponse.usage.prompt_tokens,
           completionTokens: openAIResponse.usage.completion_tokens,

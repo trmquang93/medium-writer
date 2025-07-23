@@ -6,6 +6,15 @@ export interface GenerationRequest {
   stream?: boolean;
 }
 
+export interface StructuredGenerationRequest<T = any> {
+  prompt: string;
+  schema?: T;
+  prefill?: string;
+  options: GenerationOptions;
+  expectsJson?: boolean;
+  maxRetries?: number;
+}
+
 export interface GenerationResponse {
   content: string;
   usage?: {
@@ -13,6 +22,15 @@ export interface GenerationResponse {
     completionTokens: number;
     totalTokens: number;
   };
+  model?: string;
+  finishReason?: string;
+}
+
+export interface StructuredGenerationResponse<T = any> {
+  data: T;
+  raw: string;
+  parsed: boolean;
+  usage?: GenerationResponse['usage'];
   model?: string;
   finishReason?: string;
 }
@@ -53,6 +71,45 @@ export abstract class BaseAIProvider {
   abstract generateContentStream(
     request: GenerationRequest
   ): AsyncIterableIterator<StreamChunk>;
+
+  // New structured generation method
+  async generateStructuredContent<T = any>(
+    request: StructuredGenerationRequest<T>
+  ): Promise<StructuredGenerationResponse<T>> {
+    const maxRetries = request.maxRetries || 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const generationRequest: GenerationRequest = {
+          prompt: this.buildStructuredPrompt(request),
+          options: request.options,
+          stream: false
+        };
+
+        const response = await this.generateContent(generationRequest);
+        const processed = await this.processStructuredResponse<T>(response.content, request);
+
+        return {
+          data: processed.data,
+          raw: response.content,
+          parsed: processed.success,
+          usage: response.usage,
+          model: response.model,
+          finishReason: response.finishReason
+        };
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`Structured generation attempt ${attempt}/${maxRetries} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+
+    throw lastError || new Error('Structured generation failed after all retries');
+  }
 
   abstract getUsageMetrics(): Promise<UsageMetrics>;
 
@@ -246,6 +303,100 @@ Ensure the article is engaging, informative, and ready for publication on Medium
     }
   }
 
+  // Build structured prompt with provider-specific prefilling
+  protected buildStructuredPrompt<T>(request: StructuredGenerationRequest<T>): string {
+    let prompt = request.prompt;
+    
+    if (request.expectsJson) {
+      prompt += "\n\nIMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or code blocks. Return only the raw JSON object that matches the requested format.";
+    }
+    
+    return prompt;
+  }
+
+  // Process structured response with unified JSON cleaning
+  protected async processStructuredResponse<T>(
+    content: string,
+    request: StructuredGenerationRequest<T>
+  ): Promise<{ data: T; success: boolean }> {
+    if (!request.expectsJson) {
+      return { data: content as T, success: true };
+    }
+
+    try {
+      const cleaned = this.cleanJsonResponse(content);
+      const parsed = JSON.parse(cleaned);
+      return { data: parsed as T, success: true };
+    } catch (error) {
+      console.warn('JSON parsing failed, attempting fallback cleaning:', error);
+      
+      try {
+        const fallbackCleaned = this.aggressiveJsonCleaning(content);
+        const parsed = JSON.parse(fallbackCleaned);
+        return { data: parsed as T, success: true };
+      } catch (fallbackError) {
+        console.error('All JSON parsing attempts failed:', fallbackError);
+        throw new Error(`Failed to parse JSON response: ${fallbackError}`);
+      }
+    }
+  }
+
+  // Unified JSON cleaning pipeline
+  protected cleanJsonResponse(content: string): string {
+    let cleaned = content.trim();
+    
+    // Remove markdown code blocks
+    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    
+    // Extract JSON object/array from mixed content
+    const jsonMatch = cleaned.match(/([\[\{][\s\S]*[\]\}])/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[1];
+    }
+    
+    return cleaned.trim();
+  }
+
+  // Aggressive JSON cleaning for difficult cases
+  protected aggressiveJsonCleaning(content: string): string {
+    let cleaned = content.trim();
+    
+    // Remove all non-JSON text before first { or [
+    const startMatch = cleaned.search(/[\[\{]/);
+    if (startMatch !== -1) {
+      cleaned = cleaned.substring(startMatch);
+    }
+    
+    // Remove all non-JSON text after last } or ]
+    const endMatch = cleaned.lastIndexOf('}') !== -1 ? cleaned.lastIndexOf('}') : cleaned.lastIndexOf(']');
+    if (endMatch !== -1) {
+      cleaned = cleaned.substring(0, endMatch + 1);
+    }
+    
+    // Remove common prefixes that AI models add
+    const prefixes = [
+      'Here is the JSON:',
+      'The JSON response is:',
+      'Response:',
+      'Here\'s the analysis:',
+      'Analysis:'
+    ];
+    
+    for (const prefix of prefixes) {
+      if (cleaned.toLowerCase().startsWith(prefix.toLowerCase())) {
+        cleaned = cleaned.substring(prefix.length).trim();
+      }
+    }
+    
+    return cleaned;
+  }
+
+  // Check if provider supports prefilling
+  supportsPrefilling(): boolean {
+    return false; // Override in specific providers
+  }
+
   // Get provider info
   getInfo() {
     return {
@@ -254,6 +405,7 @@ Ensure the article is engaging, informative, and ready for publication on Medium
       baseURL: this.baseURL,
       hasValidKey: Boolean(this.apiKey),
       availableModels: this.getAvailableModels(),
+      supportsPrefilling: this.supportsPrefilling(),
     };
   }
 }
