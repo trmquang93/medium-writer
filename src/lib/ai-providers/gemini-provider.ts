@@ -202,7 +202,7 @@ export class GeminiProvider extends BaseAIProvider {
       // Handle case where parts might be missing (common with MAX_TOKENS finish reason)
       if (!geminiResponse.candidates[0].content.parts || geminiResponse.candidates[0].content.parts.length === 0) {
         if (geminiResponse.candidates[0].finishReason === 'MAX_TOKENS') {
-          const thoughtsTokens = geminiResponse.usageMetadata?.thoughtsTokenCount || 0;
+          const thoughtsTokens = geminiResponse.usageMetadata?.totalTokenCount || 0;
           const outputTokens = geminiResponse.usageMetadata?.candidatesTokenCount || 0;
           throw new Error(`Response truncated due to token limit. Thinking tokens: ${thoughtsTokens}, Output tokens: ${outputTokens}. Consider using a different model for structured generation.`);
         }

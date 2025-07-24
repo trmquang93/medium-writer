@@ -6,25 +6,48 @@ import { ClaudeProvider } from './claude-provider';
 import { OpenRouterProvider } from './openrouter-provider';
 
 export class AIProviderFactory {
-  static createProvider(config: ProviderConfig): BaseAIProvider {
-    const { type, apiKey, model, baseURL } = config;
+  // Method overloads for convenience
+  static createProvider(type: AIProviderType, apiKey: string): BaseAIProvider;
+  static createProvider(type: AIProviderType, apiKey: string, model?: string): BaseAIProvider;
+  static createProvider(config: ProviderConfig): BaseAIProvider;
+  static createProvider(configOrType: ProviderConfig | AIProviderType, apiKey?: string, model?: string): BaseAIProvider {
+    let type: AIProviderType;
+    let actualApiKey: string;
+    let actualModel: string | undefined;
+    let baseURL: string | undefined;
 
-    if (!apiKey) {
+    // Handle different call patterns
+    if (typeof configOrType === 'string') {
+      // Called with separate parameters: createProvider(type, apiKey, model?)
+      type = configOrType;
+      actualApiKey = apiKey!;
+      actualModel = model;
+      baseURL = undefined;
+    } else {
+      // Called with config object: createProvider(config)
+      const config = configOrType;
+      type = config.type;
+      actualApiKey = config.apiKey;
+      actualModel = config.model;
+      baseURL = config.baseURL;
+    }
+
+    if (!actualApiKey) {
       throw new Error(`API key is required for ${type} provider`);
     }
 
     switch (type) {
       case 'openai':
-        return new OpenAIProvider(apiKey, model);
+        return new OpenAIProvider(actualApiKey, actualModel);
         
       case 'gemini':
-        return new GeminiProvider(apiKey, model);
+        return new GeminiProvider(actualApiKey, actualModel);
         
       case 'anthropic':
-        return new ClaudeProvider(apiKey, model);
+        return new ClaudeProvider(actualApiKey, actualModel);
         
       case 'openrouter':
-        return new OpenRouterProvider(apiKey, model);
+        return new OpenRouterProvider(actualApiKey, actualModel);
         
       default:
         throw new Error(`Unsupported AI provider type: ${type}`);

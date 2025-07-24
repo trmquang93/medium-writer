@@ -44,11 +44,7 @@ The confidence should be between 0.0 and 1.0. Secondary category is optional.
 
     try {
       // Create AI provider instance using the factory
-      const aiProvider = AIProviderFactory.createProvider({
-        type: provider as AIProviderType,
-        apiKey,
-        model // Use the model from settings
-      });
+      const aiProvider = AIProviderFactory.createProvider(provider as AIProviderType, apiKey, model);
       
       // Determine the prefill based on provider capabilities
       const prefill = aiProvider.supportsPrefilling() ? '{' : undefined;

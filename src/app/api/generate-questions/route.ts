@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { AIProviderType, Question } from '@/types'
-import { promptTemplates } from '@/lib/prompt-templates'
-import { AIProviderFactory } from '@/lib/ai-providers'
+import { NextRequest, NextResponse } from 'next/server';
+import { AIProviderType, Question } from '@/types';
+import { promptTemplates } from '@/lib/prompt-templates';
+import { AIProviderFactory } from '@/lib/ai-providers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { input, category, provider, apiKey } = await request.json()
+    const { input, category, provider, apiKey } = await request.json();
 
     // Validate required parameters
     if (!input || !category || !provider || !apiKey) {
       return NextResponse.json(
         { error: 'Input, category, provider, and API key are required' },
         { status: 400 }
-      )
+      );
     }
 
     // Validate category structure
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Category must have a primary classification' },
         { status: 400 }
-      )
+      );
     }
 
     // Generate the question prompt using the template system
@@ -28,9 +28,9 @@ export async function POST(request: NextRequest) {
       category.primary,
       input,
       5 // Maximum of 5 questions
-    )
+    );
 
-    let questions: Question[]
+    let questions: Question[];
 
     try {
       // Create AI provider instance using the factory
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
       // Validate and clean the questions response
       if (!Array.isArray(questions)) {
-        throw new Error('Invalid questions format - expected array')
+        throw new Error('Invalid questions format - expected array');
       }
 
       // Ensure all questions have required fields and proper formatting
@@ -84,20 +84,20 @@ export async function POST(request: NextRequest) {
           placeholder: typeof q.placeholder === 'string' ? q.placeholder : undefined,
           category: category.primary
         }))
-        .slice(0, 5) // Ensure maximum of 5 questions
+        .slice(0, 5); // Ensure maximum of 5 questions
 
       // Ensure we have at least one question
       if (validatedQuestions.length === 0) {
-        throw new Error('No valid questions generated')
+        throw new Error('No valid questions generated');
       }
 
-      return NextResponse.json(validatedQuestions)
+      return NextResponse.json(validatedQuestions);
 
     } catch (structuredError) {
       console.warn('Structured generation failed, attempting template fallback:', structuredError);
       
       // Fallback to template-based questions
-      const categoryPrompt = promptTemplates.getCategoryPrompt(category.primary)
+      const categoryPrompt = promptTemplates.getCategoryPrompt(category.primary);
       questions = categoryPrompt.questionTemplates.slice(0, 5).map((template) => ({
         id: template.id,
         text: template.question,
@@ -106,33 +106,16 @@ export async function POST(request: NextRequest) {
         options: template.options,
         placeholder: template.placeholder,
         category: category.primary
-      }))
+      }));
       
-      return NextResponse.json(questions)
-
-    } catch (parseError) {
-      console.error('Question generation error:', parseError)
-      
-      // Fallback to template-based questions
-      const categoryPrompt = promptTemplates.getCategoryPrompt(category.primary)
-      const fallbackQuestions: Question[] = categoryPrompt.questionTemplates.slice(0, 3).map(template => ({
-        id: template.id,
-        text: template.question,
-        type: template.type as 'text' | 'select' | 'multiselect' | 'number',
-        required: template.required,
-        options: template.options,
-        placeholder: template.placeholder,
-        category: category.primary
-      }))
-
-      return NextResponse.json(fallbackQuestions)
+      return NextResponse.json(questions);
     }
 
   } catch (error) {
-    console.error('Question generation request error:', error)
+    console.error('Question generation request error:', error);
     return NextResponse.json(
       { error: 'Failed to generate questions' },
       { status: 500 }
-    )
+    );
   }
 }

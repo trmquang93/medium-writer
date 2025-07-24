@@ -138,7 +138,11 @@ export class PrefillingPerformanceAnalyzer {
       rawResponseLength = response.raw.length;
       cleanedResponseLength = JSON.stringify(response.data).length;
       jsonParsingSuccess = response.parsed;
-      tokenUsage = response.usage || null;
+      tokenUsage = response.usage ? {
+        prompt: response.usage.promptTokens || 0,
+        completion: response.usage.completionTokens || 0,
+        total: response.usage.totalTokens || 0
+      } : null;
 
       // Count retries by checking if the response was parsed successfully on first try
       retryCount = response.parsed ? 0 : 1;
