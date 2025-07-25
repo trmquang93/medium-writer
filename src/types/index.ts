@@ -2,6 +2,33 @@
 
 export type AIProviderType = 'openai' | 'gemini' | 'anthropic' | 'openrouter'
 
+// Content Format Types
+export type ContentFormat = 'medium' | 'linkedin'
+
+// LinkedIn-specific types
+export type LinkedInPostType = 
+  | 'thought-leadership'
+  | 'industry-insight'
+  | 'personal-story'
+  | 'educational'
+  | 'engagement'
+
+export interface LinkedInPost {
+  id: string
+  content: string
+  characterCount: number
+  hashtags: string[]
+  postType: LinkedInPostType
+  callToAction?: string
+}
+
+export interface GeneratedLinkedInPost {
+  posts: LinkedInPost[]
+  strategy: string
+  totalCharacters: number
+  hashtagStrategy: string[]
+}
+
 // Article formatting types
 export type ArticleTone = 'professional' | 'casual' | 'academic' | 'conversational'
 export type ArticleFormat = 'how-to' | 'listicle' | 'opinion' | 'personal-story' | 'tutorial' | 'analysis'
@@ -157,7 +184,7 @@ export interface GenerationOptions {
 }
 
 // Export Formats
-export type ExportFormat = 'markdown' | 'html' | 'text' | 'json' | 'clipboard' | 'medium-optimized' | 'medium-sections' | 'rich-html'
+export type ExportFormat = 'markdown' | 'html' | 'text' | 'json' | 'clipboard' | 'medium-optimized' | 'medium-sections' | 'rich-html' | 'linkedin-post'
 
 export interface ExportOptions {
   format: ExportFormat

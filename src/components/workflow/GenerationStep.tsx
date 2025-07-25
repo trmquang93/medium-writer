@@ -20,8 +20,10 @@ import {
 import { useWorkflowStore } from '@/store/workflowStore'
 import { useAIProvider } from '@/hooks/useAIProvider'
 import { useSettingsStore } from '@/store/settingsStore'
+import { ApiKeyManager } from '@/lib/api-key-manager'
+import { AIProviderType } from '@/types'
 import { Button } from '../ui/Button'
-import { ApiKeyManager } from '../ui/ApiKeyManager'
+import { ApiKeyManager as ApiKeyManagerComponent } from '../ui/ApiKeyManager'
 import { cn } from '@/lib/utils'
 
 interface GenerationProgress {
@@ -30,33 +32,52 @@ interface GenerationProgress {
   message: string
 }
 
-const generationStages: GenerationProgress[] = [
-  { stage: 'initializing', progress: 10, message: 'Initializing AI writer...' },
-  { stage: 'analyzing', progress: 25, message: 'Analyzing your inputs and category...' },
-  { stage: 'structuring', progress: 40, message: 'Creating article structure...' },
-  { stage: 'writing', progress: 70, message: 'Writing your article...' },
-  { stage: 'reviewing', progress: 90, message: 'Reviewing and polishing...' },
-  { stage: 'completed', progress: 100, message: 'Article generation completed!' }
-]
+const getGenerationStages = (formats: string[]): GenerationProgress[] => {
+  const formatText = formats.length > 1 ? 'content for multiple formats' : 
+                    formats.includes('linkedin') ? 'LinkedIn post' : 'article'
+  
+  return [
+    { stage: 'initializing', progress: 10, message: 'Initializing AI writer...' },
+    { stage: 'analyzing', progress: 25, message: 'Analyzing your inputs and category...' },
+    { stage: 'structuring', progress: 40, message: `Creating ${formatText} structure...` },
+    { stage: 'writing', progress: 70, message: `Generating your ${formatText}...` },
+    { stage: 'reviewing', progress: 90, message: 'Reviewing and optimizing...' },
+    { stage: 'completed', progress: 100, message: `Content generation completed!` }
+  ]
+}
 
 export function GenerationStep() {
   const { 
     userInput, 
     selectedCategory, 
     responses, 
+    selectedFormats,
     generatedArticle, 
+    generatedLinkedIn,
     setGeneratedArticle,
+    setGeneratedLinkedIn,
     setCurrentStep,
     setError,
     error 
   } = useWorkflowStore()
   
   const { generateArticle, isConfigured } = useAIProvider()
-  const { selectedProvider } = useSettingsStore()
+  const { selectedProvider, apiKeys, getSelectedModel } = useSettingsStore()
+
+  // Helper function to get API key
+  const getApiKey = async (provider: AIProviderType): Promise<string | null> => {
+    // First check Zustand store
+    const storeKey = apiKeys[provider]
+    if (storeKey) return storeKey
+    
+    // Then check ApiKeyManager session storage
+    return await ApiKeyManager.getInstance().getApiKey(provider)
+  }
   
-  const [currentStage, setCurrentStage] = useState<GenerationProgress>(() => 
-    generatedArticle ? generationStages[generationStages.length - 1] : generationStages[0]
-  )
+  const [currentStage, setCurrentStage] = useState<GenerationProgress>(() => {
+    const stages = getGenerationStages(selectedFormats)
+    return (generatedArticle || generatedLinkedIn) ? stages[stages.length - 1] : stages[0]
+  })
   const [isGenerating, setIsGenerating] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [startTime, setStartTime] = useState<Date | null>(null)
@@ -84,8 +105,8 @@ export function GenerationStep() {
 
   // Effect to wait for initial configuration check before taking any action
   useEffect(() => {
-    // If we already have an article, skip the delay
-    if (generatedArticle) {
+    // If we already have content, skip the delay
+    if (generatedArticle || generatedLinkedIn) {
       setIsInitializing(false)
       return
     }
@@ -96,25 +117,22 @@ export function GenerationStep() {
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [generatedArticle])
+  }, [generatedArticle, generatedLinkedIn])
 
-  // Effect to set completed state when navigating back with existing article
+  // Effect to set completed state when navigating back with existing content
   useEffect(() => {
-    if (generatedArticle && currentStage.stage !== 'completed') {
-      setCurrentStage({
-        stage: 'completed',
-        progress: 100,
-        message: 'Article generation completed!'
-      })
+    if ((generatedArticle || generatedLinkedIn) && currentStage.stage !== 'completed') {
+      const stages = getGenerationStages(selectedFormats)
+      setCurrentStage(stages[stages.length - 1])
     }
-  }, [generatedArticle, currentStage.stage])
+  }, [generatedArticle, generatedLinkedIn, currentStage.stage, selectedFormats])
 
-  // Separate effect for clearing error when article exists
+  // Separate effect for clearing error when content exists
   useEffect(() => {
-    if (generatedArticle && error) {
+    if ((generatedArticle || generatedLinkedIn) && error) {
       setError(null)
     }
-  }, [generatedArticle, error])
+  }, [generatedArticle, generatedLinkedIn, error])
 
   // Auto-start generation when component is ready and configured
   const hasAttemptedGeneration = useRef(false)
@@ -146,8 +164,9 @@ export function GenerationStep() {
     }
   }, [generatedArticle, isGenerating, error])
 
-  const simulateProgressStages = async (abortSignal?: AbortSignal): Promise<void> => {
-    for (const stage of generationStages.slice(0, -1)) {
+  const simulateProgressStages = async (abortSignal?: AbortSignal, stages?: GenerationProgress[]): Promise<void> => {
+    const stagesToUse = stages || getGenerationStages(selectedFormats)
+    for (const stage of stagesToUse.slice(0, -1)) {
       if (abortSignal?.aborted) {
         throw new Error('Progress simulation aborted')
       }
@@ -158,8 +177,8 @@ export function GenerationStep() {
   }
 
   const handleGenerate = async (isRetry: boolean = false) => {
-    if (!userInput || !selectedCategory) {
-      setError('Missing required information for article generation')
+    if (!userInput || !selectedCategory || !selectedFormats || selectedFormats.length === 0) {
+      setError('Missing required information for content generation')
       return
     }
 
@@ -179,9 +198,10 @@ export function GenerationStep() {
       return
     }
 
-    console.log('Starting article generation:', {
+    console.log('Starting content generation:', {
       provider: selectedProvider,
       category: selectedCategory.primary,
+      formats: selectedFormats,
       userInput: userInput.substring(0, 100) + '...',
       responseCount: responses.length,
       isRetry,
@@ -208,27 +228,119 @@ export function GenerationStep() {
 
       console.log('Starting progress simulation and API call...')
 
+      const stages = getGenerationStages(selectedFormats)
+
       // Start progress simulation (don't wait for it)
-      simulateProgressStages(abortController.signal).catch((err) => {
+      simulateProgressStages(abortController.signal, stages).catch((err) => {
         console.log('Progress simulation ended:', err.message)
       })
 
-      // Generate article with timeout handling
-      console.log('Calling generateArticle API...')
+      // Get API key for the selected provider
+      const apiKey = await getApiKey(selectedProvider)
+      if (!apiKey) {
+        throw new Error('No API key found for selected provider')
+      }
+
+      // Get selected model for the provider
+      const selectedModel = getSelectedModel(selectedProvider)
+
+      // Make separate API calls for each format
+      console.log('Generating content for formats:', selectedFormats)
       const startTime = Date.now()
-      const article = await generateArticle(userInput, selectedCategory, responseData)
+      
+      const results = { medium: null, linkedin: null }
+      
+      // Generate Medium article if requested
+      if (selectedFormats.includes('medium')) {
+        console.log('Generating Medium article...')
+        const mediumResponse = await fetch('/api/generate-article', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            input: userInput,
+            category: selectedCategory,
+            responses: responseData,
+            provider: selectedProvider,
+            model: selectedModel,
+            apiKey,
+            options: {
+              wordCount: 2500,
+              tone: 'professional',
+              format: 'how-to',
+              temperature: 0.7,
+              maxTokens: 4000
+            }
+          }),
+          signal: abortController.signal
+        })
+
+        if (!mediumResponse.ok) {
+          const errorData = await mediumResponse.json()
+          throw new Error(`Medium generation failed: ${errorData.error || `HTTP ${mediumResponse.status}`}`)
+        }
+
+        results.medium = await mediumResponse.json()
+        console.log('Medium article generated successfully')
+      }
+      
+      // Generate LinkedIn post if requested
+      if (selectedFormats.includes('linkedin')) {
+        console.log('Generating LinkedIn post...')
+        const linkedinResponse = await fetch('/api/generate-linkedin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userInput,
+            category: selectedCategory.primary,
+            responses: responseData,
+            provider: selectedProvider,
+            model: selectedModel,
+            apiKey
+          }),
+          signal: abortController.signal
+        })
+
+        if (!linkedinResponse.ok) {
+          const errorData = await linkedinResponse.json()
+          throw new Error(`LinkedIn generation failed: ${errorData.error || `HTTP ${linkedinResponse.status}`}`)
+        }
+
+        const linkedinData = await linkedinResponse.json()
+        console.log('LinkedIn API response:', linkedinData)
+        
+        // Extract content from API response structure
+        if (linkedinData.success && linkedinData.content) {
+          results.linkedin = linkedinData.content
+        } else {
+          throw new Error(`LinkedIn API error: ${linkedinData.error || 'Invalid response format'}`)
+        }
+        console.log('LinkedIn post generated successfully')
+      }
+
       const duration = Date.now() - startTime
       
-      console.log('Article generation completed:', {
+      console.log('Content generation completed:', {
         duration: `${duration}ms`,
-        title: article.title,
-        wordCount: article.wordCount,
+        formats: selectedFormats,
+        hasMedium: !!results.medium,
+        hasLinkedIn: !!results.linkedin,
         provider: selectedProvider
       })
       
-      // Article generated successfully
-      setGeneratedArticle(article)
-      setCurrentStage(generationStages[generationStages.length - 1])
+      // Store generated content
+      if (results.medium) {
+        setGeneratedArticle(results.medium)
+      }
+      
+      if (results.linkedin) {
+        setGeneratedLinkedIn(results.linkedin)
+      }
+      
+      setCurrentStage(stages[stages.length - 1])
       
       // Abort any ongoing progress simulation
       abortController.abort()
@@ -238,7 +350,8 @@ export function GenerationStep() {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         provider: selectedProvider,
-        duration: startTime ? Date.now() - startTime.getTime() : 'unknown'
+        duration: startTime ? Date.now() - startTime.getTime() : 'unknown',
+        formats: selectedFormats
       })
       
       // Abort progress simulation
@@ -597,7 +710,7 @@ export function GenerationStep() {
       </motion.div>
       
       {/* API Key Manager Modal */}
-      <ApiKeyManager 
+      <ApiKeyManagerComponent 
         isOpen={showApiKeyManager} 
         onClose={() => setShowApiKeyManager(false)} 
       />

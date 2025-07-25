@@ -5,6 +5,7 @@ import { useWorkflowStore } from '@/store/workflowStore'
 import { InputStep } from './InputStep'
 import { CategoryStep } from './CategoryStep'
 import { QuestionStep } from './QuestionStep'
+import { FormatSelectionStep } from './FormatSelectionStep'
 import { GenerationStep } from './GenerationStep'
 import { EditStep } from './EditStep'
 import { ProgressIndicator } from './ProgressIndicator'
@@ -14,7 +15,8 @@ const steps = [
   { id: 'input', title: 'Your Idea', description: 'Share your article concept' },
   { id: 'category', title: 'Category', description: 'Confirm content type' },
   { id: 'questions', title: 'Questions', description: 'Provide details' },
-  { id: 'generation', title: 'Generate', description: 'Create your article' },
+  { id: 'format-selection', title: 'Format', description: 'Choose content type' },
+  { id: 'generation', title: 'Generate', description: 'Create your content' },
   { id: 'edit', title: 'Edit', description: 'Refine and export' }
 ]
 
@@ -29,6 +31,8 @@ export function ArticleWorkflow() {
         return <CategoryStep />
       case 'questions':
         return <QuestionStep />
+      case 'format-selection':
+        return <FormatSelectionStep />
       case 'generation':
         return <GenerationStep />
       case 'edit':
@@ -48,7 +52,7 @@ export function ArticleWorkflow() {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2"
           >
-            Create Your Medium Article
+            Create Your Content
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: -20 }}
@@ -56,7 +60,7 @@ export function ArticleWorkflow() {
             transition={{ delay: 0.1 }}
             className="text-gray-600 text-lg"
           >
-            Transform your ideas into compelling content in minutes
+            Transform your ideas into compelling Medium articles and LinkedIn posts
           </motion.p>
         </div>
 

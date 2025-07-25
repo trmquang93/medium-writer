@@ -1,4 +1,4 @@
-import { CategoryType, ContentCategory, GenerationOptions, Question, Response } from '@/types';
+import { CategoryType, ContentCategory, GenerationOptions, Question, Response, ContentFormat, LinkedInPostType } from '@/types';
 
 export interface CategoryPrompt {
   systemPrompt: string;
@@ -6,6 +6,18 @@ export interface CategoryPrompt {
   contentStructure: string[];
   seoGuidelines: string[];
   toneInstructions: Record<string, string>;
+  linkedInPrompts?: LinkedInPromptConfig;
+}
+
+export interface LinkedInPromptConfig {
+  systemPrompt: string;
+  postTypes: Record<LinkedInPostType, string>;
+  hashtagStrategy: string[];
+  characterLimits: {
+    optimal: number;
+    maximum: number;
+  };
+  engagementTactics: string[];
 }
 
 export interface QuestionTemplate {
@@ -82,6 +94,32 @@ export class PromptTemplateSystem {
         casual: 'Friendly and approachable, using analogies to explain complex concepts',
         academic: 'Precise and research-focused, citing studies and technical documentation',
         conversational: 'Personal experience-driven, sharing lessons learned and practical insights'
+      },
+      linkedInPrompts: {
+        systemPrompt: `You are a tech industry expert creating engaging LinkedIn content. Your posts should position the author as a thought leader while sharing valuable insights that spark professional discussions and engagement.`,
+        postTypes: {
+          'thought-leadership': 'Share a unique perspective or prediction about technology trends, backed by experience and industry knowledge',
+          'industry-insight': 'Analyze recent tech developments, news, or trends with professional commentary and implications',
+          'personal-story': 'Tell a compelling story about your tech journey, lessons learned, or career insights that others can relate to',
+          'educational': 'Teach a specific technical concept, best practice, or tool in an accessible, actionable way',
+          'engagement': 'Ask thought-provoking questions about tech challenges, career decisions, or industry directions'
+        },
+        hashtagStrategy: [
+          '#Technology', '#SoftwareDevelopment', '#TechTrends', '#Programming', '#AI', '#MachineLearning',
+          '#WebDevelopment', '#DataScience', '#TechLeadership', '#Innovation', '#TechCommunity', '#Coding'
+        ],
+        characterLimits: {
+          optimal: 1300,
+          maximum: 3000
+        },
+        engagementTactics: [
+          'Start with a hook that grabs attention in the first line',
+          'Share personal experiences or specific examples',
+          'Ask questions to encourage comments and discussion',
+          'Use line breaks for better mobile readability',
+          'End with a clear call-to-action',
+          'Include relevant technical details without overwhelming non-technical readers'
+        ]
       }
     },
     'PERSONAL_DEVELOPMENT': {
@@ -149,6 +187,32 @@ export class PromptTemplateSystem {
         casual: 'Friend-to-friend advice with personal touches and relatable examples',
         academic: 'Research-based approach citing psychological studies and expert opinions',
         conversational: 'Vulnerable and authentic, sharing personal struggles and breakthroughs'
+      },
+      linkedInPrompts: {
+        systemPrompt: `You are a personal development expert creating inspiring LinkedIn content. Your posts should motivate professionals to grow personally and professionally while building meaningful connections.`,
+        postTypes: {
+          'thought-leadership': 'Share insights on personal growth trends, habits of successful people, or philosophies that drive professional success',
+          'industry-insight': 'Discuss workplace wellness, career development strategies, or productivity trends affecting professionals',
+          'personal-story': 'Share vulnerable stories about growth, failure, resilience, or lessons learned that others can relate to',
+          'educational': 'Teach specific personal development techniques, productivity hacks, or mindset shifts that deliver immediate value',
+          'engagement': 'Ask thought-provoking questions about work-life balance, career goals, or personal values that spark meaningful discussions'
+        },
+        hashtagStrategy: [
+          '#PersonalDevelopment', '#ProfessionalGrowth', '#Leadership', '#Productivity', '#CareerDevelopment',
+          '#Mindset', '#WorkLifeBalance', '#Motivation', '#Success', '#SelfImprovement', '#Coaching', '#Wellness'
+        ],
+        characterLimits: {
+          optimal: 1300,
+          maximum: 3000
+        },
+        engagementTactics: [
+          'Share relatable struggles that professionals face daily',
+          'Include actionable tips that readers can implement immediately',
+          'Ask questions that encourage sharing personal experiences',
+          'Use storytelling to make abstract concepts concrete',
+          'End with empowering calls-to-action that inspire growth',
+          'Balance vulnerability with professionalism for authentic connection'
+        ]
       }
     },
     'BUSINESS': {
@@ -227,6 +291,32 @@ export class PromptTemplateSystem {
         casual: 'Entrepreneurial spirit with practical wisdom and relatable business stories',
         academic: 'Business school rigor with case study analysis and theoretical frameworks',
         conversational: 'Mentor-style guidance with personal business experiences and lessons learned'
+      },
+      linkedInPrompts: {
+        systemPrompt: `You are a business expert creating valuable LinkedIn content for entrepreneurs, executives, and business professionals. Your posts should drive business discussions and showcase industry expertise.`,
+        postTypes: {
+          'thought-leadership': 'Share strategic insights about market trends, business transformation, or future of industries that position you as a forward-thinking leader',
+          'industry-insight': 'Analyze current business events, economic trends, or industry developments with professional commentary and implications',
+          'personal-story': 'Share entrepreneurial journeys, business failures/successes, or leadership lessons that inspire and educate other professionals',
+          'educational': 'Explain business concepts, frameworks, strategies, or tools that other professionals can immediately apply to their work',
+          'engagement': 'Ask strategic questions about business challenges, market opportunities, or professional decisions that encourage meaningful business discourse'
+        },
+        hashtagStrategy: [
+          '#Business', '#Entrepreneurship', '#Leadership', '#Strategy', '#Innovation', '#Finance',
+          '#Marketing', '#Startups', '#Growth', '#BusinessDevelopment', '#Management', '#Economics'
+        ],
+        characterLimits: {
+          optimal: 1300,
+          maximum: 3000
+        },
+        engagementTactics: [
+          'Share data points or metrics that support your business insights',
+          'Reference successful companies or business leaders as examples',
+          'Include actionable business advice that can be implemented immediately',
+          'Ask questions about business strategy or market opportunities',
+          'End with thought-provoking statements about industry direction',
+          'Balance strategic thinking with practical execution advice'
+        ]
       }
     },
     'LIFESTYLE': {
@@ -299,6 +389,32 @@ export class PromptTemplateSystem {
         casual: 'Friend sharing discoveries with warmth and relatability',
         academic: 'Research-backed lifestyle optimization with scientific evidence',
         conversational: 'Personal journey sharing with authentic experiences and lessons'
+      },
+      linkedInPrompts: {
+        systemPrompt: `You are a lifestyle expert creating inspiring LinkedIn content that helps professionals balance work and personal life while building authentic connections around shared interests and values.`,
+        postTypes: {
+          'thought-leadership': 'Share insights about work-life integration, wellness trends, or lifestyle philosophies that resonate with working professionals',
+          'industry-insight': 'Discuss wellness at work, remote work lifestyle trends, or how lifestyle choices impact professional performance',
+          'personal-story': 'Share relatable stories about lifestyle challenges, health journeys, or personal discoveries that working professionals can connect with',
+          'educational': 'Teach practical lifestyle tips, wellness strategies, or life optimization techniques that busy professionals can easily implement',
+          'engagement': 'Ask questions about work-life balance, wellness goals, or lifestyle choices that encourage sharing and community building'
+        },
+        hashtagStrategy: [
+          '#WorkLifeBalance', '#Wellness', '#LifestyleTips', '#MentalHealth', '#Productivity', '#SelfCare',
+          '#HealthyLiving', '#Mindfulness', '#PersonalGrowth', '#WellnessAtWork', '#LifeOptimization', '#Balance'
+        ],
+        characterLimits: {
+          optimal: 1300,
+          maximum: 3000
+        },
+        engagementTactics: [
+          'Share relatable lifestyle struggles that working professionals face',
+          'Include simple, actionable tips that can be implemented during busy schedules',
+          'Ask questions about wellness goals and lifestyle priorities',
+          'Use personal anecdotes to make content more authentic and relatable',
+          'End with motivational calls-to-action that encourage positive lifestyle changes',
+          'Balance aspiration with realistic advice for busy professionals'
+        ]
       }
     },
     'CURRENT_AFFAIRS': {
@@ -1025,6 +1141,137 @@ ${guidelines.map(guideline => `• ${guideline}`).join('\n')}
       seoGuidelines: prompt.seoGuidelines.length,
       supportedTones: Object.keys(prompt.toneInstructions)
     };
+  }
+
+  // LinkedIn-specific methods
+  buildLinkedInPrompt(
+    category: CategoryType,
+    userInput: string,
+    responses: Response[],
+    postType?: LinkedInPostType
+  ): string {
+    const categoryPrompt = this.getCategoryPrompt(category);
+    const linkedInConfig = categoryPrompt.linkedInPrompts;
+    
+    if (!linkedInConfig) {
+      throw new Error(`LinkedIn prompts not configured for category: ${category}`);
+    }
+
+    // Build context from user responses
+    const contextSection = this.buildContextFromResponses(responses, categoryPrompt.questionTemplates);
+    
+    // Determine post type automatically if not specified
+    const selectedPostType = postType || this.determineLinkedInPostType(userInput, responses);
+    const postTypeGuidance = linkedInConfig.postTypes[selectedPostType];
+    
+    // Build hashtag suggestions
+    const hashtagSection = this.buildHashtagSuggestions(linkedInConfig.hashtagStrategy, category);
+    
+    // Build engagement tactics
+    const engagementSection = linkedInConfig.engagementTactics.join('\n- ');
+
+    return `${linkedInConfig.systemPrompt}
+
+POST TOPIC: ${userInput}
+
+CONTENT CATEGORY: ${category}
+POST TYPE: ${selectedPostType}
+
+${contextSection}
+
+POST TYPE GUIDANCE:
+${postTypeGuidance}
+
+CHARACTER REQUIREMENTS:
+- Target range: 800-1300 characters (optimal for LinkedIn engagement)
+- Maximum: ${linkedInConfig.characterLimits.maximum} characters
+- Use strategic line breaks for mobile readability
+
+ENGAGEMENT TACTICS:
+- ${engagementSection}
+
+${hashtagSection}
+
+FORMATTING GUIDELINES:
+- Start with a compelling hook in the first 1-2 lines
+- Use line breaks to create visual breathing room
+- Include specific examples or data points when relevant
+- End with a clear call-to-action or thought-provoking question
+- Ensure the post works well on both desktop and mobile LinkedIn
+
+Generate a professional LinkedIn post that follows these guidelines and encourages meaningful engagement from your professional network.`;
+  }
+
+  private determineLinkedInPostType(userInput: string, responses: Response[]): LinkedInPostType {
+    const input = userInput.toLowerCase();
+    
+    // Simple keyword-based detection - can be enhanced with ML later
+    if (input.includes('trend') || input.includes('future') || input.includes('prediction')) {
+      return 'thought-leadership';
+    }
+    if (input.includes('how to') || input.includes('tutorial') || input.includes('learn')) {
+      return 'educational';
+    }
+    if (input.includes('story') || input.includes('experience') || input.includes('journey')) {
+      return 'personal-story';
+    }
+    if (input.includes('what') || input.includes('why') || input.includes('which')) {
+      return 'engagement';
+    }
+    
+    // Default to industry insight
+    return 'industry-insight';
+  }
+
+  private buildHashtagSuggestions(hashtagStrategy: string[], category: CategoryType): string {
+    // Select 3-5 relevant hashtags
+    const selectedHashtags = hashtagStrategy.slice(0, 5);
+    
+    return `HASHTAG STRATEGY:
+- Use 3-5 hashtags maximum for optimal reach
+- Suggested hashtags: ${selectedHashtags.join(', ')}
+- Mix of popular and niche hashtags for balanced reach
+- Place hashtags naturally within the post or at the end`;
+  }
+
+  buildMultiFormatPrompt(
+    category: CategoryType,
+    userInput: string,
+    responses: Response[],
+    formats: ContentFormat[],
+    options: GenerationOptions
+  ): string {
+    const prompts: string[] = [];
+    
+    if (formats.includes('medium')) {
+      prompts.push(`MEDIUM ARTICLE:\n${this.buildArticlePrompt(category, userInput, responses, options)}`);
+    }
+    
+    if (formats.includes('linkedin')) {
+      prompts.push(`LINKEDIN POST:\n${this.buildLinkedInPrompt(category, userInput, responses)}`);
+    }
+    
+    const multiFormatInstruction = `
+MULTI-FORMAT CONTENT GENERATION
+
+You are generating content for multiple platforms simultaneously. Each format should:
+1. Maintain the core message and value proposition
+2. Be optimized specifically for its target platform
+3. Have appropriate length and tone for its audience
+4. Cross-reference each other naturally (LinkedIn can mention the full article on Medium)
+
+Generate content for the following formats:
+${formats.map(f => f.toUpperCase()).join(' and ')}
+
+${prompts.join('\n\n---\n\n')}
+
+CROSS-PLATFORM STRATEGY:
+- LinkedIn post should tease the main topic and direct readers to the full Medium article
+- Maintain consistent messaging while optimizing format-specific elements
+- Ensure both pieces of content can stand alone while complementing each other
+`;
+
+    return multiFormatInstruction;
   }
 }
 

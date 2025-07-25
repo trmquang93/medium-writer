@@ -335,8 +335,16 @@ Ensure the article is engaging, informative, and ready for publication on Medium
         const parsed = JSON.parse(fallbackCleaned);
         return { data: parsed as T, success: true };
       } catch (fallbackError) {
-        console.error('All JSON parsing attempts failed:', fallbackError);
-        throw new Error(`Failed to parse JSON response: ${fallbackError}`);
+        console.warn('Aggressive cleaning failed, attempting truncation recovery:', fallbackError);
+        
+        try {
+          const recoveredCleaned = this.recoverTruncatedJson(content);
+          const parsed = JSON.parse(recoveredCleaned);
+          return { data: parsed as T, success: true };
+        } catch (recoveryError) {
+          console.error('All JSON parsing attempts failed:', recoveryError);
+          throw new Error(`Failed to parse JSON response: ${recoveryError}`);
+        }
       }
     }
   }
@@ -390,6 +398,128 @@ Ensure the article is engaging, informative, and ready for publication on Medium
     }
     
     return cleaned;
+  }
+
+  // Recover truncated JSON by attempting to complete incomplete structures
+  protected recoverTruncatedJson(content: string): string {
+    let cleaned = content.trim();
+    
+    // Remove markdown code blocks
+    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    
+    // Find the start of JSON
+    const startMatch = cleaned.search(/[\[\{]/);
+    if (startMatch !== -1) {
+      cleaned = cleaned.substring(startMatch);
+    }
+    
+    // If content appears to be truncated (doesn't end with } or ]), try to complete it
+    if (cleaned.startsWith('{') && !cleaned.endsWith('}')) {
+      // Look for incomplete string values and try to complete the JSON object
+      const lastCompleteProperty = this.findLastCompleteProperty(cleaned);
+      if (lastCompleteProperty !== -1) {
+        cleaned = cleaned.substring(0, lastCompleteProperty) + '}';
+      } else {
+        // If we can't find any complete property, create a minimal valid object
+        cleaned = '{"error":"Truncated response"}';
+      }
+    } else if (cleaned.startsWith('[') && !cleaned.endsWith(']')) {
+      // Handle truncated arrays
+      const lastCompleteItem = this.findLastCompleteArrayItem(cleaned);
+      if (lastCompleteItem !== -1) {
+        cleaned = cleaned.substring(0, lastCompleteItem) + ']';
+      } else {
+        cleaned = '[]';
+      }
+    }
+    
+    return cleaned;
+  }
+
+  // Find the last complete property in a truncated JSON object
+  private findLastCompleteProperty(jsonStr: string): number {
+    let braceCount = 0;
+    let inString = false;
+    let escaped = false;
+    let lastCompleteIndex = -1;
+    
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr[i];
+      
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      
+      if (char === '"' && !escaped) {
+        inString = !inString;
+        continue;
+      }
+      
+      if (!inString) {
+        if (char === '{') {
+          braceCount++;
+        } else if (char === '}') {
+          braceCount--;
+        } else if ((char === ',' || char === '}') && braceCount === 1) {
+          // Found a complete property
+          lastCompleteIndex = i;
+        }
+      }
+    }
+    
+    return lastCompleteIndex;
+  }
+
+  // Find the last complete item in a truncated JSON array
+  private findLastCompleteArrayItem(jsonStr: string): number {
+    let braceCount = 0;
+    let bracketCount = 0;
+    let inString = false;
+    let escaped = false;
+    let lastCompleteIndex = -1;
+    
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr[i];
+      
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      
+      if (char === '"' && !escaped) {
+        inString = !inString;
+        continue;
+      }
+      
+      if (!inString) {
+        if (char === '{') {
+          braceCount++;
+        } else if (char === '}') {
+          braceCount--;
+        } else if (char === '[') {
+          bracketCount++;
+        } else if (char === ']') {
+          bracketCount--;
+        } else if ((char === ',' || char === ']') && braceCount === 0 && bracketCount === 1) {
+          // Found a complete array item
+          lastCompleteIndex = i;
+        }
+      }
+    }
+    
+    return lastCompleteIndex;
   }
 
   // Check if provider supports prefilling

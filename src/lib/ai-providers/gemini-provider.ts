@@ -161,8 +161,8 @@ export class GeminiProvider extends BaseAIProvider {
           },
         ],
         generationConfig: {
-          maxOutputTokens: Math.min(8192, Math.max(2000, Math.ceil(request.options.wordCount * 2.5))),
-          temperature: this.getTemperatureForTone(request.options.tone),
+          maxOutputTokens: request.options.maxTokens || Math.min(8192, Math.max(2000, Math.ceil(request.options.wordCount * 2.5))),
+          temperature: request.options.temperature || this.getTemperatureForTone(request.options.tone),
           topP: 0.8,
           topK: 40,
         },

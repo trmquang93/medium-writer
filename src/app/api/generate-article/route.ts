@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AIProviderType, ContentCategory, Article, Response, GenerationOptions } from '@/types'
 import { promptTemplates } from '@/lib/prompt-templates'
+import { AIProviderFactory } from '@/lib/ai-providers/provider-factory'
 
 // Helper function to create fetch requests with timeout
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = 50000): Promise<globalThis.Response> {
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
           break
 
         case 'gemini':
-          const geminiModel = model || 'gemini-pro'
+          const geminiModel = model || 'gemini-2.5-flash-lite'
           const geminiResponse = await fetchWithTimeout(
             `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
             {

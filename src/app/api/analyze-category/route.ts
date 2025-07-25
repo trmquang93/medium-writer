@@ -59,7 +59,9 @@ The confidence should be between 0.0 and 1.0. Secondary category is optional.
         options: {
           wordCount: 500, // Short response
           tone: 'professional',
-          format: 'how-to'
+          format: 'how-to',
+          maxTokens: 1000, // Increased to prevent truncation
+          temperature: 0.3 // Lower temperature for more consistent JSON
         },
         maxRetries: 2
       });

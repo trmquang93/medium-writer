@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { ContentCategory, Question, Response, Article } from '@/types'
+import { ContentCategory, Question, Response, Article, ContentFormat, GeneratedLinkedInPost } from '@/types'
 import { sessionManager } from '@/lib/session-manager'
 
-export type WorkflowStep = 'input' | 'category' | 'questions' | 'generation' | 'edit'
+export type WorkflowStep = 'input' | 'category' | 'questions' | 'format-selection' | 'generation' | 'edit'
 
 interface WorkflowState {
   // Current workflow state
@@ -12,7 +12,12 @@ interface WorkflowState {
   selectedCategory: ContentCategory | null
   questions: Question[]
   responses: Response[]
+  
+  // Multi-format support
+  selectedFormats: ContentFormat[]
   generatedArticle: Article | null
+  generatedLinkedIn: GeneratedLinkedInPost | null
+  
   isLoading: boolean
   error: string | null
   
@@ -27,8 +32,14 @@ interface WorkflowState {
   setSelectedCategory: (category: ContentCategory) => void
   setQuestions: (questions: Question[]) => void
   addResponse: (response: Response) => void
+  
+  // Multi-format actions
+  setSelectedFormats: (formats: ContentFormat[]) => void
   setGeneratedArticle: (article: Article) => void
   updateGeneratedArticle: (updates: Partial<Article>) => void
+  setGeneratedLinkedIn: (linkedIn: GeneratedLinkedInPost) => void
+  updateGeneratedLinkedIn: (updates: Partial<GeneratedLinkedInPost>) => void
+  
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setGenerationProgress: (progress: number) => void
@@ -43,7 +54,9 @@ const initialState = {
   selectedCategory: null,
   questions: [],
   responses: [],
+  selectedFormats: [] as ContentFormat[],
   generatedArticle: null,
+  generatedLinkedIn: null,
   isLoading: false,
   error: null,
   totalQuestions: 0,
@@ -82,6 +95,8 @@ export const useWorkflowStore = create<WorkflowState>()(
           set({ responses })
         },
         
+        setSelectedFormats: (formats) => set({ selectedFormats: formats }),
+        
         setGeneratedArticle: (article) => {
           set({ generatedArticle: article })
           // Save session snapshot when article is generated
@@ -95,6 +110,22 @@ export const useWorkflowStore = create<WorkflowState>()(
           const current = get().generatedArticle
           if (current) {
             set({ generatedArticle: { ...current, ...updates } })
+          }
+        },
+        
+        setGeneratedLinkedIn: (linkedIn) => {
+          set({ generatedLinkedIn: linkedIn })
+          // Save session snapshot when LinkedIn content is generated
+          sessionManager.saveSessionSnapshot({
+            workflowStep: get().currentStep,
+            hasArticle: !!get().generatedArticle || !!linkedIn
+          })
+        },
+        
+        updateGeneratedLinkedIn: (updates) => {
+          const current = get().generatedLinkedIn
+          if (current) {
+            set({ generatedLinkedIn: { ...current, ...updates } })
           }
         },
         
@@ -127,7 +158,9 @@ export const useWorkflowStore = create<WorkflowState>()(
           userInput: state.userInput,
           selectedCategory: state.selectedCategory,
           responses: state.responses,
+          selectedFormats: state.selectedFormats,
           generatedArticle: state.generatedArticle,
+          generatedLinkedIn: state.generatedLinkedIn,
         }),
       }
     ),

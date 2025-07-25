@@ -171,7 +171,7 @@ export function QuestionStep() {
       }
     })
 
-    setCurrentStep('generation')
+    setCurrentStep('format-selection')
   }
 
   const handleBack = () => {
