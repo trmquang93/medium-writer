@@ -32,7 +32,9 @@ export const useAIProvider = (): UseAIProviderReturn => {
     selectedModels,
     getSelectedModel,
     setApiKey: setStoreApiKey, 
-    removeApiKey: removeStoreApiKey 
+    removeApiKey: removeStoreApiKey,
+    persistApiKeys,
+    isProviderPersistent
   } = useSettingsStore()
   const [isValidating, setIsValidating] = useState(false)
   const [isConfigured, setIsConfigured] = useState(false)
@@ -280,8 +282,12 @@ export const useAIProvider = (): UseAIProviderReturn => {
     const isValid = await validateApiKey(provider, key)
     if (isValid) {
       setStoreApiKey(provider, key)
-      // Also store in the secure session manager
-      await ApiKeyManager.getInstance().setApiKey(provider, key)
+      
+      // Check if persistence is enabled for this provider
+      const shouldPersist = persistApiKeys && isProviderPersistent(provider)
+      
+      // Store in the secure API key manager with appropriate persistence setting
+      await ApiKeyManager.getInstance().setApiKey(provider, key, shouldPersist)
       
       // Only update configuration status if it's the current provider
       if (provider === selectedProvider) {
@@ -290,7 +296,7 @@ export const useAIProvider = (): UseAIProviderReturn => {
     } else {
       throw new Error('Invalid API key')
     }
-  }, [validateApiKey, setStoreApiKey, selectedProvider])
+  }, [validateApiKey, setStoreApiKey, selectedProvider, persistApiKeys, isProviderPersistent])
 
   const removeApiKey = useCallback(async (provider: AIProviderType) => {
     removeStoreApiKey(provider)

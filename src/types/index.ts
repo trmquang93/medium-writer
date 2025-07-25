@@ -165,3 +165,28 @@ export interface ExportOptions {
   includeTimestamps: boolean
   filename?: string
 }
+
+// API Key Persistence Types
+export interface PersistenceSettings {
+  enabled: boolean
+  providers: Record<AIProviderType, boolean>
+  encryptionMethod: 'aes' | 'xor'
+  createdAt: Date
+  lastModified: Date
+}
+
+export interface StoredApiKey {
+  provider: AIProviderType
+  key: string
+  encrypted: boolean
+  persistent: boolean
+  lastUsed: Date
+  createdAt: Date
+  salt?: string
+}
+
+export interface ApiKeyValidation {
+  isValid: boolean
+  error?: string
+  provider: AIProviderType
+}

@@ -234,4 +234,6 @@ export const STORAGE_KEYS = {
   USER_PREFERENCES: 'medium_ai_preferences',
   SESSION_DATA: 'medium_ai_session',
   API_KEYS: 'medium_ai_api_keys',
+  PERSISTENT_API_KEYS: 'medium_ai_persistent_api_keys',
+  PERSISTENCE_SETTINGS: 'medium_ai_persistence_settings',
 };
