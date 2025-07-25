@@ -24,6 +24,7 @@ import { useWorkflowStore } from '@/store/workflowStore'
 import { Button } from '../ui/Button'
 import { cn } from '@/lib/utils'
 import { ExportFormat } from '@/types'
+import { MediumExportPanel } from '../export/MediumExportPanel'
 
 interface ExportState {
   format: ExportFormat | null
@@ -380,74 +381,84 @@ ${convertToHtml(content)}
         </div>
       </motion.div>
 
-      {/* Export Options */}
+      {/* Medium Export Options */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="bg-gray-50 rounded-lg p-6 border border-gray-200"
+        className="space-y-6"
       >
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-          <Download className="w-5 h-5 mr-2" />
-          Export Options
-        </h3>
+        <MediumExportPanel 
+          content={content}
+          onExportComplete={(result) => {
+            console.log('Export completed:', result)
+          }}
+        />
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { format: 'markdown' as ExportFormat, icon: FileText, label: 'Markdown', desc: '.md file' },
-            { format: 'html' as ExportFormat, icon: Globe, label: 'HTML', desc: '.html file' },
-            { format: 'text' as ExportFormat, icon: Code, label: 'Plain Text', desc: '.txt file' },
-            { format: 'clipboard' as any, icon: Copy, label: 'Copy', desc: 'To clipboard' }
-          ].map(({ format, icon: Icon, label, desc }) => (
-            <Button
-              key={format}
-              onClick={() => format === 'clipboard' ? handleCopyToClipboard() : handleExport(format)}
-              variant="outline"
-              size="sm"
-              disabled={!content.trim() || exportState.isExporting}
-              className={cn(
-                "h-auto p-4 flex flex-col items-center space-y-2 transition-all duration-200",
-                exportState.success && exportState.format === format && "border-green-500 bg-green-50"
-              )}
+        {/* Legacy Export Options */}
+        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <Download className="w-5 h-5 mr-2" />
+            Standard Export Options
+          </h3>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { format: 'markdown' as ExportFormat, icon: FileText, label: 'Markdown', desc: '.md file' },
+              { format: 'html' as ExportFormat, icon: Globe, label: 'HTML', desc: '.html file' },
+              { format: 'text' as ExportFormat, icon: Code, label: 'Plain Text', desc: '.txt file' },
+              { format: 'clipboard' as any, icon: Copy, label: 'Copy', desc: 'To clipboard' }
+            ].map(({ format, icon: Icon, label, desc }) => (
+              <Button
+                key={format}
+                onClick={() => format === 'clipboard' ? handleCopyToClipboard() : handleExport(format)}
+                variant="outline"
+                size="sm"
+                disabled={!content.trim() || exportState.isExporting}
+                className={cn(
+                  "h-auto p-4 flex flex-col items-center space-y-2 transition-all duration-200",
+                  exportState.success && exportState.format === format && "border-green-500 bg-green-50"
+                )}
+              >
+                <div className="relative">
+                  <Icon className="w-6 h-6" />
+                  <AnimatePresence>
+                    {exportState.success && exportState.format === format && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center"
+                      >
+                        <Check className="w-2 h-2 text-white" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <div className="text-center">
+                  <div className="font-medium">{label}</div>
+                  <div className="text-xs text-gray-500">{desc}</div>
+                </div>
+              </Button>
+            ))}
+          </div>
+          
+          {exportState.success && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2 text-green-800"
             >
-              <div className="relative">
-                <Icon className="w-6 h-6" />
-                <AnimatePresence>
-                  {exportState.success && exportState.format === format && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center"
-                    >
-                      <Check className="w-2 h-2 text-white" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div className="text-center">
-                <div className="font-medium">{label}</div>
-                <div className="text-xs text-gray-500">{desc}</div>
-              </div>
-            </Button>
-          ))}
+              <Check className="w-4 h-4" />
+              <span className="text-sm">
+                {exportState.format === 'clipboard' ? 
+                  'Content copied to clipboard!' : 
+                  'File exported successfully!'
+                }
+              </span>
+            </motion.div>
+          )}
         </div>
-        
-        {exportState.success && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2 text-green-800"
-          >
-            <Check className="w-4 h-4" />
-            <span className="text-sm">
-              {exportState.format === 'clipboard' ? 
-                'Content copied to clipboard!' : 
-                'File exported successfully!'
-              }
-            </span>
-          </motion.div>
-        )}
       </motion.div>
 
       {/* Action Buttons */}

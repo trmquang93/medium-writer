@@ -157,13 +157,61 @@ export interface GenerationOptions {
 }
 
 // Export Formats
-export type ExportFormat = 'markdown' | 'html' | 'text' | 'json' | 'clipboard'
+export type ExportFormat = 'markdown' | 'html' | 'text' | 'json' | 'clipboard' | 'medium-optimized' | 'medium-sections' | 'rich-html'
 
 export interface ExportOptions {
   format: ExportFormat
   includeMetadata: boolean
   includeTimestamps: boolean
   filename?: string
+}
+
+// Medium-specific export types
+export interface MediumExportOptions {
+  createGists: boolean
+  githubToken?: string
+  splitSections: boolean
+  optimizeForMedium: boolean
+  includeCodeInline: boolean
+}
+
+export interface GistInfo {
+  id: string
+  url: string
+  embedUrl: string
+  filename: string
+  language: string
+  description?: string
+  createdAt: Date
+}
+
+export interface CodeBlock {
+  language: string
+  code: string
+  filename?: string
+  startLine: number
+  endLine: number
+}
+
+export interface MediumContent {
+  title: string
+  subtitle?: string
+  sections: MediumSection[]
+  codeBlocks: CodeBlock[]
+  gists: GistInfo[]
+  metadata: {
+    wordCount: number
+    readingTime: number
+    tags: string[]
+  }
+}
+
+export interface MediumSection {
+  id: string
+  type: 'header' | 'paragraph' | 'list' | 'quote' | 'code' | 'gist-reference'
+  content: string
+  level?: number // for headers
+  gistId?: string // for gist references
 }
 
 // API Key Persistence Types
